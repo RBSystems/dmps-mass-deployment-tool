@@ -1,0 +1,19 @@
+﻿{
+  "_source": [
+    "timestamp",
+    "device.hostname",
+    "device.ipAddress",
+    "type",
+    "action.description"
+  ],
+  "query": {
+    "bool": {
+      "must": {
+        "match": {
+          "_type": "system"
+        }
+      }
+    }
+  },
+  "size": 1000
+}
