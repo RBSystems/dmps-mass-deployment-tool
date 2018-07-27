@@ -27,20 +27,35 @@ namespace DMPSMassDeploymentTool
 
         string logFileName = "";
         string currentHeader = "";
+        List<string> inMemory = new List<string>();
+        DateTime lastSave = DateTime.Now;
+
         public void Log(string message)
         {
-            if (message.StartsWith("---"))
-            {
-                currentStatus.Text = message;
-                currentHeader = message;
-            }
+            MethodInvoker del = delegate ()
+            {                
+                if (message.StartsWith("---"))
+                {
+                    currentStatus.Text = message;
+                    currentHeader = message;
+                }
+                else
+                {
+                    currentStatus.Text = currentHeader + "\n" + message;
+                }
+
+                inMemory.Add(message);
+                logListBox.Items.Insert(0, message);
+                logListBox.Update();
+
+                if (DateTime.Now.Subtract(lastSave).TotalSeconds >= 5)
+                    System.IO.File.WriteAllLines(@"C:\temp\DMPSDeployment.log", inMemory);
+            };
+
+            if (this.InvokeRequired)
+                this.Invoke(del);
             else
-            {
-                currentStatus.Text = currentHeader + "\n" + message;
-            }
-             
-            System.IO.File.AppendAllLines(logFileName, new string[] { message });
-            logListBox.Items.Add(message);
+                del();            
         }
     }
 }
