@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,13 +16,15 @@ namespace DMPSMassDeploymentTool
         public string DMPSHostName;
         public string DMPSIPAddress;
         public string NewSPZFileName;
+        public string NewVTZFileName;
 
 
-        public DeployDMPS(string hostName, string ipAddress, string spzFilename)
+        public DeployDMPS(string hostName, string ipAddress, string spzFilename, string vtzFilename)
         {
             this.DMPSHostName = hostName;
             this.DMPSIPAddress = ipAddress;
             this.NewSPZFileName = spzFilename;
+            this.NewVTZFileName = vtzFilename;
         }
 
         enum DeploymentStep
@@ -31,8 +34,10 @@ namespace DMPSMassDeploymentTool
             UnzipAndParseSIG,
             GetCurrentSignals,
             PushNewSPZFile,
-            PushNewZigFile,            
+            PushNewZigFile,
+            ParseNewSigAndGetCurrentSignals2,
             SetSignals,
+            GetDMPSDevices,
             GetUITouchPanelAddresses,
             PushVtzFiles
         }
@@ -43,6 +48,8 @@ namespace DMPSMassDeploymentTool
         int retryNumber = 0;
 
         VPTCOMSERVERLib.VptSessionClass vptSessionClass { get; set; }
+
+        public bool StopProcessing { get; set; }
 
         public void Dispose()
         {
@@ -59,6 +66,7 @@ namespace DMPSMassDeploymentTool
         {
             //create the running form and show it
             logForm = new RunningForm();
+            logForm.DeployDMPS = this;
             logForm.Show();
             Log("Starting Deployment for " + DMPSHostName + " [" + DMPSIPAddress + "]");
 
@@ -83,6 +91,13 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
 
+            logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
+
+            Connect();
+        }
+
+        public void Connect()
+        {
             //connect
             int connect = vptSessionClass.OpenSession("auto " + DMPSIPAddress, DMPSIPAddress);
         }
@@ -173,14 +188,20 @@ namespace DMPSMassDeploymentTool
 
         private void VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
         {
-            Log("\tAPI On Activate Str Complete - nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], bSuccess:[" + bSuccess + "], pszOutputs:[" + pszOutputs + "], nUserPassBack:[" + nUserPassBack + "]");
-
+            Log("\tAPI On Activate Str Complete - nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], bSuccess:[" + bSuccess + "], " + 
+                "pszOutputs:[" + pszOutputs + "], nUserPassBack:[" + nUserPassBack + "]");
+            
             if (bSuccess == 0)
             {
                 if (curStep == DeploymentStep.RetrieveZIG && retryNumber < 5)
                 {
+                    if (StopProcessing) return;
                     RetrieveZigFile();
                     retryNumber++;
+                }
+                else if (curStep == DeploymentStep.SetSignals)
+                {
+                    SetNextSignal();
                 }
             }
             else
@@ -189,7 +210,7 @@ namespace DMPSMassDeploymentTool
                 {
                     if (nTransactionID == curAPITransactionID)
                     {
-                        
+                        if (StopProcessing) return;
                         //start the next step
                         Log("ZIG file Xfer complete");
                         UnzipAndParseSigFile();                        
@@ -199,7 +220,75 @@ namespace DMPSMassDeploymentTool
                 {
                     int count = signalList.Count(one => one.HasSignalValue);
                     Log("Current Signals complete - " + count + " out of " + signalList.Count + " retrieved current values");
+
+                    string[] debug =
+                        signalList.Select(one => one.SignalName + "|" + one.SignalIndex + "|" + one.SignalValue).ToArray();
+
+                    System.IO.File.WriteAllLines(@"C:\temp\CurrentSignals.txt", debug);
+
+                    if (StopProcessing) return;
+                    //var x = signalList.Find(one => one.SignalName == "Local_Input_Type_tx$");
+
+                    //Log(x.SignalType.ToString());
+                    //Log(x.SignalValue);
+
+                    //x = signalList.Find(one => one.SignalName == "TP1_Mic1_Volume");
+                    //Log(x.SignalType.ToString());
+                    //Log(x.SignalValue);
+
+                    //x = signalList.Find(one => one.SignalName == "TP_Online");
+                    //Log(x.SignalType.ToString());
+                    //Log(x.SignalValue);
                     SendSPZFile();
+                }
+                else if (curStep == DeploymentStep.PushNewSPZFile)
+                {                    
+                    Log("New SPZ file pushed");
+
+                    if (StopProcessing) return;
+                    SendNewZIGFile();
+                }
+                else if (curStep == DeploymentStep.PushNewZigFile)
+                {                    
+                    Log("New ZIG file pushed");
+
+                    if (StopProcessing) return;
+                    GetCurrentSignals2();
+                }
+                else if (curStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2)
+                {                    
+                    int count = signalListAfterDeployment.Count(one => one.HasSignalValue);
+                    Log("New Signals complete - " + count + " out of " + signalListAfterDeployment.Count + " retrieved current values");
+
+                    string[] debug =
+                        signalListAfterDeployment.Select(one => one.SignalName + "|" + one.SignalIndex + "|" + one.SignalValue).ToArray();
+
+                    System.IO.File.WriteAllLines(@"C:\temp\NewSignals.txt", debug);
+
+                    if (StopProcessing) return;
+                    SetSignals();
+                }
+                else if (curStep == DeploymentStep.SetSignals)
+                {
+                    SetNextSignal();
+                }
+                else if (curStep == DeploymentStep.GetDMPSDevices)
+                {
+                    //parse outputs
+                    DeviceResultsFromDMPS = pszOutputs.Split(new char[] { '\"', ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (StopProcessing) return;
+                    GetTSPIPAddresses();
+                }
+                else if (curStep == DeploymentStep.GetUITouchPanelAddresses)
+                {
+                    //parse output
+                    string[] x = pszOutputs.Split(new char[] { '\"', ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (x[0].StartsWith("TSW"))
+                    {
+                        vtzIPAddresses.Add(x[x.Length - 2]);
+                    }
+                    GetNextTSPIPAddress();
                 }
             }
         }
@@ -220,6 +309,17 @@ namespace DMPSMassDeploymentTool
                     signal.SignalValue = pszwParam;
                 }
             }
+            else if (curStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
+            {
+                var signal = signalListAfterDeployment.Find(one => one.SignalIndex == lParam1);
+                if (signal != null)
+                {
+                    Log("Signal found: " + signal.SignalName);
+                    signal.HasSignalValue = true;
+                    signal.SignalValue = pszwParam;
+                }
+            }
+
             Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
         }
 
@@ -228,7 +328,7 @@ namespace DMPSMassDeploymentTool
             Log("\tAPI On Debug String - nTransactionID:[" + nTransactionID + "], nCategory:[" + nCategory + "], data:[" + pszwData + "]");
         }
 
-        private void RetrieveZigFile()
+        public void RetrieveZigFile()
         {
             curStep = DeploymentStep.RetrieveZIG;
             Log("---------------------");
@@ -266,7 +366,9 @@ namespace DMPSMassDeploymentTool
 
         List<CrestronSignal> signalList = new List<CrestronSignal>();
 
-        private void UnzipAndParseSigFile()
+        List<CrestronSignal> signalListAfterDeployment = new List<CrestronSignal>();
+
+        public void UnzipAndParseSigFile()
         {
             curStep = DeploymentStep.UnzipAndParseSIG;
             Log("---------------");
@@ -342,20 +444,304 @@ namespace DMPSMassDeploymentTool
             GetCurrentSignals();
         }
 
-        private void GetCurrentSignals()
+        public void GetCurrentSignals()
         {
             curStep = DeploymentStep.GetCurrentSignals;
             Log("---------------");
-            Log("Getting current signals from DMPS....");                        
+            Log("Getting current signals from DMPS....");
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
             vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus", 10000, ref curAPITransactionID, 0, 0);            
         }
 
-        private void SendSPZFile()
+        public void SendSPZFile()
         {
             curStep = DeploymentStep.PushNewSPZFile;
             Log("---------------");
             Log("Sending new SPZ file....");
+            vptSessionClass.AsyncActivateStr(0, "ProgramSend \"" + NewSPZFileName + "\"", 10000, curAPITransactionID, 0, 0);
+        }
+
+        public void SendNewZIGFile()
+        {
+            curStep = DeploymentStep.PushNewZigFile;
+
+            Log("---------------");
+            Log("Sending new ZIG file....");
+
+            string sigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".sig");
+            string zigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".zig");
+
+            if (System.IO.File.Exists(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName)))
+                System.IO.File.Delete(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName));
+
+            using (var zip = ZipFile.Open(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
+                zip.CreateEntryFromFile(sigFileName, System.IO.Path.GetFileName(sigFileName));
+
+            int transactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + @"c:\temp\" + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
+                5000, ref transactionID, 0, 0);            
+        }
+        public void GetCurrentSignals2()
+        {
+            curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
+            Log("---------------");
+            Log("Parsing new SIG file");
+
+            string sigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".sig");
+            byte[] sigFile = System.IO.File.ReadAllBytes(sigFileName);
+
+            signalListAfterDeployment.Clear();
+
+            string signalFileType = "";
+            int index = 0;
+
+            while (true)
+            {
+                signalFileType += (char)(sigFile[index]);
+                index++;
+                if (signalFileType.EndsWith("]")) break;
+            }
+
+            if (signalFileType != "[RLSIG0001]" && signalFileType != "[LOGOSSIG001.000]")
+            {
+                Log("Unknown sig file type");
+            }
+
+            Log("Signal file type: " + signalFileType);
+
+            while (index < sigFile.Length)
+            {
+                var length = BitConverter.ToUInt16(sigFile, index) - 8;
+                index = index + 2;
+                string signalName = "";
+                uint signalIndex = 0;
+                byte signalType = 0;
+                byte signalFlags = 0;
+
+                if (signalFileType == "[RLSIG0001]")
+                {
+                    signalName = ASCIIEncoding.ASCII.GetString(sigFile, index, length);
+                }
+                else if (signalFileType == "[LOGOSSIG001.000]")
+                {
+                    signalName = Encoding.Unicode.GetString(sigFile, index, length);
+                }
+
+                index += length;
+
+                if (!string.IsNullOrEmpty(signalName))
+                {
+                    signalIndex = BitConverter.ToUInt32(sigFile, index);
+                    index += 4;
+                }
+
+                signalType = sigFile[index];
+                index++;
+                signalFlags = sigFile[index];
+                index++;
+
+                var x = new CrestronSignal() { SignalName = signalName, SignalIndex = signalIndex, SignalFlags = signalFlags, SignalType = signalType };
+                //Log("\t" + x.ToString());
+                signalListAfterDeployment.Add(x);
+
+                if (signalListAfterDeployment.Count % 25 == 0)
+                    Log("\t" + signalListAfterDeployment.Count.ToString() + " signals parsed");
+            }
+
+            Log("---------------");
+            Log("Getting current signals from DMPS (again)....");
             vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus", 10000, ref curAPITransactionID, 0, 0);
+        }
+
+        List<Tuple<string, string>> signalsToSet = new List<Tuple<string, string>>();
+        int signalIndexToSet = 0;
+
+        public void SetSignals()
+        {
+            //see which ones are different from what they used to be and set them           
+            signalsToSet = new List<Tuple<string, string>>();
+            signalIndexToSet = 0;
+            foreach (var oldSignal in signalList)
+            {
+                var newSignal = signalListAfterDeployment.Find(one => one.SignalName == oldSignal.SignalName);
+
+                if (newSignal != null)
+                {
+                    if (
+                        (oldSignal.HasSignalValue && newSignal.HasSignalValue && oldSignal.SignalValue != newSignal.SignalValue) ||
+                        (oldSignal.HasSignalValue && !newSignal.HasSignalValue)
+                       )
+                    {
+                        //reset this one
+                        if (newSignal.SignalType == 0)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", " + oldSignal.SignalValue, newSignal.SignalName));
+                        else if (newSignal.SignalType == 1)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", " + oldSignal.SignalValue, newSignal.SignalName));
+                        else if (newSignal.SignalType == 2)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"" + oldSignal.SignalValue + "\"", newSignal.SignalName));
+                    }                    
+                    else if (!oldSignal.HasSignalValue && newSignal.HasSignalValue)
+                    {
+                        //reset this one to default
+                        if (newSignal.SignalType == 0)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                        else if (newSignal.SignalType == 1)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                        else if (newSignal.SignalType == 2)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"", newSignal.SignalName));
+                    }
+                }
+            }
+
+            System.IO.File.WriteAllLines(@"C:\temp\NeedToOutput.txt", signalsToSet.Select(one => one.Item1 + "|" + one.Item2));
+
+            SetNextSignal();
+        }
+
+        public void SetNextSignal()
+        {
+            curStep = DeploymentStep.SetSignals;
+
+            if (signalIndexToSet >= signalsToSet.Count)
+            {
+                //next step
+                if (StopProcessing) return;
+                GetDevicesFromDMPS();
+            }
+            else
+            {
+                var command = signalsToSet[signalIndexToSet];
+
+                signalIndexToSet++;
+
+                Log("Setting " + command.Item2 + " [" + command.Item1 + "]");
+                vptSessionClass.AsyncActivateStr(0, command.Item1, 10000, ref curAPITransactionID, 0, 0);
+            }
+        }
+
+        string[] DeviceResultsFromDMPS;
+        int deviceToQueryIndex = 0;
+
+        public void GetDevicesFromDMPS()
+        {
+            curStep = DeploymentStep.GetDMPSDevices;
+            Log("---------------");
+            Log("Getting current devices from DMPS....");            
+            vptSessionClass.AsyncActivateStr(0, "SubNetworkReportDevices 2", 10000, ref curAPITransactionID, 0, 0);
+        }
+
+        public void GetTSPIPAddresses()
+        {
+            curStep = DeploymentStep.GetUITouchPanelAddresses;
+            Log("---------------");
+            Log("Getting device information....");
+            deviceToQueryIndex = 1;
+
+            GetNextTSPIPAddress();
+        }
+
+        public void GetNextTSPIPAddress()
+        {
+            if (deviceToQueryIndex + 2 >= DeviceResultsFromDMPS.Length)
+            {
+                //next step
+                Log("Complete query of Devices");
+                if (StopProcessing) return;
+                SendNewVTZFiles();
+            }
+            else
+            {
+                
+
+                Log("Getting device info for index" + DeviceResultsFromDMPS[deviceToQueryIndex] + "....");
+
+                int value = Convert.ToInt32(DeviceResultsFromDMPS[deviceToQueryIndex], 16);
+
+                vptSessionClass.AsyncActivateStr(0, "SubNetworkReportDevice 2, " + value, 10000, ref curAPITransactionID, 0, 0);
+
+                deviceToQueryIndex = deviceToQueryIndex + 2;
+            }
+        }
+
+        List<string> vtzIPAddresses = new List<string>();
+        int vtzIndex = 0;
+        public void SendNewVTZFiles()
+        {
+            curStep = DeploymentStep.PushVtzFiles;
+            Log("---------------");
+            Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");
+
+            vtzIndex = 0;
+
+            vptSessionClass.CloseSession();
+
+            vtzClass.OnSessionReady += VtzClass_OnSessionReady;
+            vtzClass.OnAsyncActivateStart += VtzClass_OnAsyncActivateStart;
+            vtzClass.OnFileXferBatchStart += VtzClass_OnFileXferBatchStart;
+            vtzClass.OnFileXferFileStart += VtzClass_OnFileXferFileStart;
+            vtzClass.OnFileXferFileProgress += VtzClass_OnFileXferFileProgress;
+            vtzClass.OnFileXferFileFinish += VtzClass_OnFileXferFileFinish;
+            vtzClass.OnFileXferBatchFinish += VtzClass_OnFileXferBatchFinish;            
+
+            SendNextVTZFile();
+        }
+
+        private void VtzClass_OnFileXferBatchFinish(int nTransactionID, byte bSuccess)
+        {
+            Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
+               "bSuccess:[" + bSuccess + "]");
+                        
+            SendNextVTZFile();
+        }
+
+        private void VtzClass_OnFileXferFileFinish(int nTransactionID, byte bSuccess)
+        {
+            Log("\tVTZ On File Xfer File Finish - nTransactionID:[" + nTransactionID + "], " +
+               "bSuccess:[" + bSuccess + "]");
+        }
+
+        private void VtzClass_OnFileXferFileProgress(int nTransactionID, int nFileBytesTransferred, int nTotalBytesTransferred, int nBytesPerSecond, int nEstTotalTimeRemaining)
+        {
+            Log("\tVTZ On File Xfer File Progress - nTransactionID:[" + nTransactionID + "], " +
+                 "nFileBytesTransferred:[" + nFileBytesTransferred + "], " +
+                 "nTotalBytesTransferred:[" + nTotalBytesTransferred + "], nBytesPerSecond:[" + nBytesPerSecond + "], " +
+                 "nEstTotalTimeRemaining:[" + nEstTotalTimeRemaining + "]");
+        }
+
+        private void VtzClass_OnFileXferBatchStart(int nTransactionID, string pszwDescription, int nTotalFiles, int nTotalSize)
+        {
+            Log("\tVTZ On File Xfer Batch Start - nTransactionID:[" + nTransactionID + "], " +
+               "pszwDescription:[" + pszwDescription + "], " +
+               "nTotalFiles:[" + nTotalFiles + "], nTotalSize:[" + nTotalSize + "]");
+        }
+
+        private void VtzClass_OnFileXferFileStart(int nTransactionID, string pszwLocalFilename, string pszwRemoteFilename, int nSize, byte bSending, string pszwProtocolName)
+        {
+            Log("\tVTZ On File Xfer File Start - nTransactionID:[" + nTransactionID + "], " +
+               "pszwLocalFilename:[" + pszwLocalFilename + "], " +
+               "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " +
+               "bSending:[" + bSending + "], pszwProtocolName :[" + pszwProtocolName + "]");
+        }
+
+        private void VtzClass_OnAsyncActivateStart(int nTransactionID, int nAbilityCode, int nUserPassBack)
+        {
+            Log("VTZ Session starting nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], nUserPassBack:[" + nUserPassBack + "]");
+        }
+
+        private void VtzClass_OnSessionReady()
+        {
+            vtzClass.AsyncActivateStr(0, "DisplayListSend \"" + NewVTZFileName + "\"", 10000, ref curAPITransactionID, 0, 0);
+        }
+
+        VPTCOMSERVERLib.VptSessionClass vtzClass = new VPTCOMSERVERLib.VptSessionClass();        
+
+        public void SendNextVTZFile()
+        {
+            string ip = vtzIPAddresses[vtzIndex];
+            vtzIndex++;
+            vtzClass.CloseSession();
+            vtzClass.OpenSession("auto " + ip, ip);
         }
     }
 }

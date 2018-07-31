@@ -32,6 +32,19 @@
             this.currentStatus = new System.Windows.Forms.TextBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.logListBox = new System.Windows.Forms.ListBox();
+            this.step1ButtonConnect = new System.Windows.Forms.Button();
+            this.step2ButtonRetrieveZIG = new System.Windows.Forms.Button();
+            this.step3ButtonParseSIG = new System.Windows.Forms.Button();
+            this.step4ButtonGetSignals = new System.Windows.Forms.Button();
+            this.step5ButtonPushSPZ = new System.Windows.Forms.Button();
+            this.step6ButtonPushZig = new System.Windows.Forms.Button();
+            this.step7ButtonGetSignals = new System.Windows.Forms.Button();
+            this.step8ButtonSetSignals = new System.Windows.Forms.Button();
+            this.step9ButtonGetDMPSDevices = new System.Windows.Forms.Button();
+            this.step10ButtonGetTSPAddresses = new System.Windows.Forms.Button();
+            this.step11ButtonPushVTZFiles = new System.Windows.Forms.Button();
+            this.targetDMPS = new System.Windows.Forms.Label();
+            this.stopProcessingButton = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -53,7 +66,7 @@
             this.currentStatus.Multiline = true;
             this.currentStatus.Name = "currentStatus";
             this.currentStatus.ReadOnly = true;
-            this.currentStatus.Size = new System.Drawing.Size(695, 38);
+            this.currentStatus.Size = new System.Drawing.Size(1019, 38);
             this.currentStatus.TabIndex = 1;
             // 
             // groupBox1
@@ -64,7 +77,7 @@
             this.groupBox1.Controls.Add(this.logListBox);
             this.groupBox1.Location = new System.Drawing.Point(12, 56);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(814, 583);
+            this.groupBox1.Size = new System.Drawing.Size(908, 583);
             this.groupBox1.TabIndex = 2;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Log";
@@ -76,15 +89,168 @@
             this.logListBox.ItemHeight = 16;
             this.logListBox.Location = new System.Drawing.Point(3, 18);
             this.logListBox.Name = "logListBox";
-            this.logListBox.Size = new System.Drawing.Size(808, 562);
+            this.logListBox.Size = new System.Drawing.Size(902, 562);
             this.logListBox.TabIndex = 0;
+            // 
+            // step1ButtonConnect
+            // 
+            this.step1ButtonConnect.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step1ButtonConnect.Location = new System.Drawing.Point(923, 105);
+            this.step1ButtonConnect.Name = "step1ButtonConnect";
+            this.step1ButtonConnect.Size = new System.Drawing.Size(230, 31);
+            this.step1ButtonConnect.TabIndex = 3;
+            this.step1ButtonConnect.Text = "Step 1 - Connect";
+            this.step1ButtonConnect.UseVisualStyleBackColor = true;
+            this.step1ButtonConnect.Click += new System.EventHandler(this.step1ButtonConnect_Click);
+            // 
+            // step2ButtonRetrieveZIG
+            // 
+            this.step2ButtonRetrieveZIG.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step2ButtonRetrieveZIG.Location = new System.Drawing.Point(923, 142);
+            this.step2ButtonRetrieveZIG.Name = "step2ButtonRetrieveZIG";
+            this.step2ButtonRetrieveZIG.Size = new System.Drawing.Size(230, 31);
+            this.step2ButtonRetrieveZIG.TabIndex = 4;
+            this.step2ButtonRetrieveZIG.Text = "Step 2 - Retrieve ZIG";
+            this.step2ButtonRetrieveZIG.UseVisualStyleBackColor = true;
+            this.step2ButtonRetrieveZIG.Click += new System.EventHandler(this.step2ButtonRetrieveZIG_Click);
+            // 
+            // step3ButtonParseSIG
+            // 
+            this.step3ButtonParseSIG.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step3ButtonParseSIG.Location = new System.Drawing.Point(923, 179);
+            this.step3ButtonParseSIG.Name = "step3ButtonParseSIG";
+            this.step3ButtonParseSIG.Size = new System.Drawing.Size(230, 31);
+            this.step3ButtonParseSIG.TabIndex = 5;
+            this.step3ButtonParseSIG.Text = "Step 3 - Parse SIG";
+            this.step3ButtonParseSIG.UseVisualStyleBackColor = true;
+            this.step3ButtonParseSIG.Click += new System.EventHandler(this.step3ButtonParseSIG_Click);
+            // 
+            // step4ButtonGetSignals
+            // 
+            this.step4ButtonGetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step4ButtonGetSignals.Location = new System.Drawing.Point(923, 216);
+            this.step4ButtonGetSignals.Name = "step4ButtonGetSignals";
+            this.step4ButtonGetSignals.Size = new System.Drawing.Size(230, 31);
+            this.step4ButtonGetSignals.TabIndex = 6;
+            this.step4ButtonGetSignals.Text = "Step 4 - Get Current Signals";
+            this.step4ButtonGetSignals.UseVisualStyleBackColor = true;
+            this.step4ButtonGetSignals.Click += new System.EventHandler(this.step4ButtonGetSignals_Click);
+            // 
+            // step5ButtonPushSPZ
+            // 
+            this.step5ButtonPushSPZ.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step5ButtonPushSPZ.Location = new System.Drawing.Point(923, 253);
+            this.step5ButtonPushSPZ.Name = "step5ButtonPushSPZ";
+            this.step5ButtonPushSPZ.Size = new System.Drawing.Size(230, 31);
+            this.step5ButtonPushSPZ.TabIndex = 7;
+            this.step5ButtonPushSPZ.Text = "Step 5 - Push SPZ File";
+            this.step5ButtonPushSPZ.UseVisualStyleBackColor = true;
+            this.step5ButtonPushSPZ.Click += new System.EventHandler(this.step5ButtonPushSPZ_Click);
+            // 
+            // step6ButtonPushZig
+            // 
+            this.step6ButtonPushZig.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step6ButtonPushZig.Location = new System.Drawing.Point(923, 290);
+            this.step6ButtonPushZig.Name = "step6ButtonPushZig";
+            this.step6ButtonPushZig.Size = new System.Drawing.Size(230, 31);
+            this.step6ButtonPushZig.TabIndex = 8;
+            this.step6ButtonPushZig.Text = "Step 6 - Push Zig File";
+            this.step6ButtonPushZig.UseVisualStyleBackColor = true;
+            this.step6ButtonPushZig.Click += new System.EventHandler(this.step6ButtonPushZig_Click);
+            // 
+            // step7ButtonGetSignals
+            // 
+            this.step7ButtonGetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step7ButtonGetSignals.Location = new System.Drawing.Point(923, 327);
+            this.step7ButtonGetSignals.Name = "step7ButtonGetSignals";
+            this.step7ButtonGetSignals.Size = new System.Drawing.Size(230, 31);
+            this.step7ButtonGetSignals.TabIndex = 9;
+            this.step7ButtonGetSignals.Text = "Step 7 - Get new Signals";
+            this.step7ButtonGetSignals.UseVisualStyleBackColor = true;
+            this.step7ButtonGetSignals.Click += new System.EventHandler(this.step7ButtonGetSignals_Click);
+            // 
+            // step8ButtonSetSignals
+            // 
+            this.step8ButtonSetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step8ButtonSetSignals.Location = new System.Drawing.Point(923, 364);
+            this.step8ButtonSetSignals.Name = "step8ButtonSetSignals";
+            this.step8ButtonSetSignals.Size = new System.Drawing.Size(230, 31);
+            this.step8ButtonSetSignals.TabIndex = 10;
+            this.step8ButtonSetSignals.Text = "Step 8 - Set Signals";
+            this.step8ButtonSetSignals.UseVisualStyleBackColor = true;
+            this.step8ButtonSetSignals.Click += new System.EventHandler(this.step8ButtonSetSignals_Click);
+            // 
+            // step9ButtonGetDMPSDevices
+            // 
+            this.step9ButtonGetDMPSDevices.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step9ButtonGetDMPSDevices.Location = new System.Drawing.Point(923, 401);
+            this.step9ButtonGetDMPSDevices.Name = "step9ButtonGetDMPSDevices";
+            this.step9ButtonGetDMPSDevices.Size = new System.Drawing.Size(230, 31);
+            this.step9ButtonGetDMPSDevices.TabIndex = 11;
+            this.step9ButtonGetDMPSDevices.Text = "Step 9 - Get DMPS Devices";
+            this.step9ButtonGetDMPSDevices.UseVisualStyleBackColor = true;
+            this.step9ButtonGetDMPSDevices.Click += new System.EventHandler(this.step9ButtonGetDMPSDevices_Click);
+            // 
+            // step10ButtonGetTSPAddresses
+            // 
+            this.step10ButtonGetTSPAddresses.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step10ButtonGetTSPAddresses.Location = new System.Drawing.Point(923, 438);
+            this.step10ButtonGetTSPAddresses.Name = "step10ButtonGetTSPAddresses";
+            this.step10ButtonGetTSPAddresses.Size = new System.Drawing.Size(230, 31);
+            this.step10ButtonGetTSPAddresses.TabIndex = 12;
+            this.step10ButtonGetTSPAddresses.Text = "Step 10 - Get TSP Addresses";
+            this.step10ButtonGetTSPAddresses.UseVisualStyleBackColor = true;
+            this.step10ButtonGetTSPAddresses.Click += new System.EventHandler(this.step10ButtonGetTSPAddresses_Click);
+            // 
+            // step11ButtonPushVTZFiles
+            // 
+            this.step11ButtonPushVTZFiles.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step11ButtonPushVTZFiles.Location = new System.Drawing.Point(923, 475);
+            this.step11ButtonPushVTZFiles.Name = "step11ButtonPushVTZFiles";
+            this.step11ButtonPushVTZFiles.Size = new System.Drawing.Size(230, 31);
+            this.step11ButtonPushVTZFiles.TabIndex = 13;
+            this.step11ButtonPushVTZFiles.Text = "Step 11 - Push VTZ Files";
+            this.step11ButtonPushVTZFiles.UseVisualStyleBackColor = true;
+            this.step11ButtonPushVTZFiles.Click += new System.EventHandler(this.step11ButtonPushVTZFiles_Click);
+            // 
+            // targetDMPS
+            // 
+            this.targetDMPS.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.targetDMPS.Location = new System.Drawing.Point(923, 56);
+            this.targetDMPS.Name = "targetDMPS";
+            this.targetDMPS.Size = new System.Drawing.Size(230, 46);
+            this.targetDMPS.TabIndex = 14;
+            this.targetDMPS.Text = "Target DMPS: 10.6.36.220";
+            // 
+            // stopProcessingButton
+            // 
+            this.stopProcessingButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.stopProcessingButton.Location = new System.Drawing.Point(923, 605);
+            this.stopProcessingButton.Name = "stopProcessingButton";
+            this.stopProcessingButton.Size = new System.Drawing.Size(230, 31);
+            this.stopProcessingButton.TabIndex = 15;
+            this.stopProcessingButton.Text = "Stop Processing";
+            this.stopProcessingButton.UseVisualStyleBackColor = true;
+            this.stopProcessingButton.Click += new System.EventHandler(this.stopProcessingButton_Click);
             // 
             // RunningForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(838, 651);
-            this.ControlBox = false;
+            this.ClientSize = new System.Drawing.Size(1162, 651);
+            this.Controls.Add(this.stopProcessingButton);
+            this.Controls.Add(this.targetDMPS);
+            this.Controls.Add(this.step11ButtonPushVTZFiles);
+            this.Controls.Add(this.step10ButtonGetTSPAddresses);
+            this.Controls.Add(this.step9ButtonGetDMPSDevices);
+            this.Controls.Add(this.step8ButtonSetSignals);
+            this.Controls.Add(this.step7ButtonGetSignals);
+            this.Controls.Add(this.step6ButtonPushZig);
+            this.Controls.Add(this.step5ButtonPushSPZ);
+            this.Controls.Add(this.step4ButtonGetSignals);
+            this.Controls.Add(this.step3ButtonParseSIG);
+            this.Controls.Add(this.step2ButtonRetrieveZIG);
+            this.Controls.Add(this.step1ButtonConnect);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.currentStatus);
             this.Controls.Add(this.label1);
@@ -103,5 +269,18 @@
         private System.Windows.Forms.TextBox currentStatus;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.ListBox logListBox;
+        private System.Windows.Forms.Button step1ButtonConnect;
+        private System.Windows.Forms.Button step2ButtonRetrieveZIG;
+        private System.Windows.Forms.Button step3ButtonParseSIG;
+        private System.Windows.Forms.Button step4ButtonGetSignals;
+        private System.Windows.Forms.Button step5ButtonPushSPZ;
+        private System.Windows.Forms.Button step6ButtonPushZig;
+        private System.Windows.Forms.Button step7ButtonGetSignals;
+        private System.Windows.Forms.Button step8ButtonSetSignals;
+        private System.Windows.Forms.Button step9ButtonGetDMPSDevices;
+        private System.Windows.Forms.Button step10ButtonGetTSPAddresses;
+        private System.Windows.Forms.Button step11ButtonPushVTZFiles;
+        private System.Windows.Forms.Button stopProcessingButton;
+        public System.Windows.Forms.Label targetDMPS;
     }
 }

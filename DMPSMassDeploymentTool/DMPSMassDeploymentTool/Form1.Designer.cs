@@ -30,17 +30,10 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.tabControl1 = new System.Windows.Forms.TabControl();
-            this.tabPage3 = new System.Windows.Forms.TabPage();
-            this.testSEndSigFile = new System.Windows.Forms.Button();
-            this.testDisconnectFromVTZ = new System.Windows.Forms.Button();
-            this.testSendVTZFile = new System.Windows.Forms.Button();
-            this.testSendSPZFile = new System.Windows.Forms.Button();
-            this.testGetCurrentSignals = new System.Windows.Forms.Button();
-            this.testDecodeSig = new System.Windows.Forms.Button();
-            this.testDisconnect = new System.Windows.Forms.Button();
-            this.testButton = new System.Windows.Forms.Button();
-            this.testConnect = new System.Windows.Forms.Button();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.browseVTZFileButton = new System.Windows.Forms.Button();
+            this.label8 = new System.Windows.Forms.Label();
+            this.vtzFileLocation = new System.Windows.Forms.TextBox();
             this.applyFilterButton = new System.Windows.Forms.Button();
             this.filterText = new System.Windows.Forms.TextBox();
             this.label7 = new System.Windows.Forms.Label();
@@ -59,134 +52,24 @@
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.spzFileLocation = new System.Windows.Forms.TextBox();
-            this.browseVTZFileButton = new System.Windows.Forms.Button();
-            this.label8 = new System.Windows.Forms.Label();
-            this.vtzFileLocation = new System.Windows.Forms.TextBox();
+            this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.button1 = new System.Windows.Forms.Button();
             this.tabControl1.SuspendLayout();
-            this.tabPage3.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.groupBox1.SuspendLayout();
+            this.tabPage2.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabControl1
             // 
-            this.tabControl1.Controls.Add(this.tabPage3);
             this.tabControl1.Controls.Add(this.tabPage1);
+            this.tabControl1.Controls.Add(this.tabPage2);
             this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabControl1.Location = new System.Drawing.Point(0, 0);
             this.tabControl1.Name = "tabControl1";
             this.tabControl1.SelectedIndex = 0;
             this.tabControl1.Size = new System.Drawing.Size(961, 637);
             this.tabControl1.TabIndex = 4;
-            // 
-            // tabPage3
-            // 
-            this.tabPage3.Controls.Add(this.testSEndSigFile);
-            this.tabPage3.Controls.Add(this.testDisconnectFromVTZ);
-            this.tabPage3.Controls.Add(this.testSendVTZFile);
-            this.tabPage3.Controls.Add(this.testSendSPZFile);
-            this.tabPage3.Controls.Add(this.testGetCurrentSignals);
-            this.tabPage3.Controls.Add(this.testDecodeSig);
-            this.tabPage3.Controls.Add(this.testDisconnect);
-            this.tabPage3.Controls.Add(this.testButton);
-            this.tabPage3.Controls.Add(this.testConnect);
-            this.tabPage3.Location = new System.Drawing.Point(4, 25);
-            this.tabPage3.Name = "tabPage3";
-            this.tabPage3.Padding = new System.Windows.Forms.Padding(3);
-            this.tabPage3.Size = new System.Drawing.Size(953, 608);
-            this.tabPage3.TabIndex = 2;
-            this.tabPage3.Text = "tabPage3";
-            this.tabPage3.UseVisualStyleBackColor = true;
-            // 
-            // testSEndSigFile
-            // 
-            this.testSEndSigFile.Location = new System.Drawing.Point(406, 87);
-            this.testSEndSigFile.Name = "testSEndSigFile";
-            this.testSEndSigFile.Size = new System.Drawing.Size(184, 23);
-            this.testSEndSigFile.TabIndex = 8;
-            this.testSEndSigFile.Text = "Zip and send sig file";
-            this.testSEndSigFile.UseVisualStyleBackColor = true;
-            this.testSEndSigFile.Click += new System.EventHandler(this.testSEndSigFile_Click);
-            // 
-            // testDisconnectFromVTZ
-            // 
-            this.testDisconnectFromVTZ.Location = new System.Drawing.Point(668, 87);
-            this.testDisconnectFromVTZ.Name = "testDisconnectFromVTZ";
-            this.testDisconnectFromVTZ.Size = new System.Drawing.Size(184, 23);
-            this.testDisconnectFromVTZ.TabIndex = 7;
-            this.testDisconnectFromVTZ.Text = "Disconnect from VTZ";
-            this.testDisconnectFromVTZ.UseVisualStyleBackColor = true;
-            this.testDisconnectFromVTZ.Click += new System.EventHandler(this.testDisconnectFromVTZ_Click);
-            // 
-            // testSendVTZFile
-            // 
-            this.testSendVTZFile.Location = new System.Drawing.Point(668, 58);
-            this.testSendVTZFile.Name = "testSendVTZFile";
-            this.testSendVTZFile.Size = new System.Drawing.Size(184, 23);
-            this.testSendVTZFile.TabIndex = 6;
-            this.testSendVTZFile.Text = "Send vtz File";
-            this.testSendVTZFile.UseVisualStyleBackColor = true;
-            this.testSendVTZFile.Click += new System.EventHandler(this.testSendVTZFile_Click);
-            // 
-            // testSendSPZFile
-            // 
-            this.testSendSPZFile.Location = new System.Drawing.Point(406, 58);
-            this.testSendSPZFile.Name = "testSendSPZFile";
-            this.testSendSPZFile.Size = new System.Drawing.Size(184, 23);
-            this.testSendSPZFile.TabIndex = 5;
-            this.testSendSPZFile.Text = "Send spz file";
-            this.testSendSPZFile.UseVisualStyleBackColor = true;
-            this.testSendSPZFile.Click += new System.EventHandler(this.testSendSPZFile_Click);
-            // 
-            // testGetCurrentSignals
-            // 
-            this.testGetCurrentSignals.Location = new System.Drawing.Point(22, 117);
-            this.testGetCurrentSignals.Name = "testGetCurrentSignals";
-            this.testGetCurrentSignals.Size = new System.Drawing.Size(184, 23);
-            this.testGetCurrentSignals.TabIndex = 4;
-            this.testGetCurrentSignals.Text = "Get Current Signals";
-            this.testGetCurrentSignals.UseVisualStyleBackColor = true;
-            this.testGetCurrentSignals.Click += new System.EventHandler(this.testGetCurrentSignals_Click);
-            // 
-            // testDecodeSig
-            // 
-            this.testDecodeSig.Location = new System.Drawing.Point(22, 87);
-            this.testDecodeSig.Name = "testDecodeSig";
-            this.testDecodeSig.Size = new System.Drawing.Size(184, 23);
-            this.testDecodeSig.TabIndex = 3;
-            this.testDecodeSig.Text = "Extract and Parse Sig";
-            this.testDecodeSig.UseVisualStyleBackColor = true;
-            this.testDecodeSig.Click += new System.EventHandler(this.testDecodeSig_Click);
-            // 
-            // testDisconnect
-            // 
-            this.testDisconnect.Location = new System.Drawing.Point(22, 146);
-            this.testDisconnect.Name = "testDisconnect";
-            this.testDisconnect.Size = new System.Drawing.Size(75, 23);
-            this.testDisconnect.TabIndex = 2;
-            this.testDisconnect.Text = "Disconnect";
-            this.testDisconnect.UseVisualStyleBackColor = true;
-            this.testDisconnect.Click += new System.EventHandler(this.testDisconnect_Click);
-            // 
-            // testButton
-            // 
-            this.testButton.Location = new System.Drawing.Point(22, 58);
-            this.testButton.Name = "testButton";
-            this.testButton.Size = new System.Drawing.Size(184, 23);
-            this.testButton.TabIndex = 1;
-            this.testButton.Text = "Get zig file";
-            this.testButton.UseVisualStyleBackColor = true;
-            this.testButton.Click += new System.EventHandler(this.testButton_Click);
-            // 
-            // testConnect
-            // 
-            this.testConnect.Location = new System.Drawing.Point(22, 18);
-            this.testConnect.Name = "testConnect";
-            this.testConnect.Size = new System.Drawing.Size(75, 23);
-            this.testConnect.TabIndex = 0;
-            this.testConnect.Text = "Connect";
-            this.testConnect.UseVisualStyleBackColor = true;
-            this.testConnect.Click += new System.EventHandler(this.testConnect_Click);
             // 
             // tabPage1
             // 
@@ -213,6 +96,37 @@
             this.tabPage1.Size = new System.Drawing.Size(953, 608);
             this.tabPage1.TabIndex = 0;
             this.tabPage1.Text = "DMPS Unit";
+            // 
+            // browseVTZFileButton
+            // 
+            this.browseVTZFileButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.browseVTZFileButton.Location = new System.Drawing.Point(870, 121);
+            this.browseVTZFileButton.Name = "browseVTZFileButton";
+            this.browseVTZFileButton.Size = new System.Drawing.Size(75, 27);
+            this.browseVTZFileButton.TabIndex = 20;
+            this.browseVTZFileButton.Text = "Browse...";
+            this.browseVTZFileButton.UseVisualStyleBackColor = true;
+            this.browseVTZFileButton.Click += new System.EventHandler(this.browseVTZFileButton_Click);
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(8, 105);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(371, 17);
+            this.label8.TabIndex = 18;
+            this.label8.Text = "Step 3: Choose the VTZ file to push to all of the UI Panels";
+            // 
+            // vtzFileLocation
+            // 
+            this.vtzFileLocation.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.vtzFileLocation.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.vtzFileLocation.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
+            this.vtzFileLocation.Location = new System.Drawing.Point(9, 125);
+            this.vtzFileLocation.Name = "vtzFileLocation";
+            this.vtzFileLocation.Size = new System.Drawing.Size(855, 22);
+            this.vtzFileLocation.TabIndex = 19;
             // 
             // applyFilterButton
             // 
@@ -392,36 +306,26 @@
             this.spzFileLocation.Size = new System.Drawing.Size(855, 22);
             this.spzFileLocation.TabIndex = 6;
             // 
-            // browseVTZFileButton
+            // tabPage2
             // 
-            this.browseVTZFileButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.browseVTZFileButton.Location = new System.Drawing.Point(870, 121);
-            this.browseVTZFileButton.Name = "browseVTZFileButton";
-            this.browseVTZFileButton.Size = new System.Drawing.Size(75, 27);
-            this.browseVTZFileButton.TabIndex = 20;
-            this.browseVTZFileButton.Text = "Browse...";
-            this.browseVTZFileButton.UseVisualStyleBackColor = true;
-            this.browseVTZFileButton.Click += new System.EventHandler(this.browseVTZFileButton_Click);
+            this.tabPage2.Controls.Add(this.button1);
+            this.tabPage2.Location = new System.Drawing.Point(4, 25);
+            this.tabPage2.Name = "tabPage2";
+            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPage2.Size = new System.Drawing.Size(953, 608);
+            this.tabPage2.TabIndex = 1;
+            this.tabPage2.Text = "tabPage2";
+            this.tabPage2.UseVisualStyleBackColor = true;
             // 
-            // label8
+            // button1
             // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(8, 105);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(371, 17);
-            this.label8.TabIndex = 18;
-            this.label8.Text = "Step 3: Choose the VTZ file to push to all of the UI Panels";
-            // 
-            // vtzFileLocation
-            // 
-            this.vtzFileLocation.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.vtzFileLocation.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
-            this.vtzFileLocation.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.FileSystem;
-            this.vtzFileLocation.Location = new System.Drawing.Point(9, 125);
-            this.vtzFileLocation.Name = "vtzFileLocation";
-            this.vtzFileLocation.Size = new System.Drawing.Size(855, 22);
-            this.vtzFileLocation.TabIndex = 19;
+            this.button1.Location = new System.Drawing.Point(22, 23);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(75, 23);
+            this.button1.TabIndex = 0;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click);
             // 
             // Form1
             // 
@@ -433,11 +337,11 @@
             this.Name = "Form1";
             this.Text = "DMPS Mass Deployment Tool";
             this.tabControl1.ResumeLayout(false);
-            this.tabPage3.ResumeLayout(false);
             this.tabPage1.ResumeLayout(false);
             this.tabPage1.PerformLayout();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.tabPage2.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -464,19 +368,11 @@
         private System.Windows.Forms.TextBox filterText;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Button applyFilterButton;
-        private System.Windows.Forms.TabPage tabPage3;
-        private System.Windows.Forms.Button testDisconnect;
-        private System.Windows.Forms.Button testButton;
-        private System.Windows.Forms.Button testConnect;
-        private System.Windows.Forms.Button testDecodeSig;
-        private System.Windows.Forms.Button testGetCurrentSignals;
-        private System.Windows.Forms.Button testSendSPZFile;
-        private System.Windows.Forms.Button testSendVTZFile;
-        private System.Windows.Forms.Button testDisconnectFromVTZ;
-        private System.Windows.Forms.Button testSEndSigFile;
         private System.Windows.Forms.Button browseVTZFileButton;
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.TextBox vtzFileLocation;
+        private System.Windows.Forms.TabPage tabPage2;
+        private System.Windows.Forms.Button button1;
     }
 }
 

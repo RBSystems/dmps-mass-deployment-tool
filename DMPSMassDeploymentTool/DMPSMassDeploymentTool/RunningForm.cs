@@ -57,5 +57,67 @@ namespace DMPSMassDeploymentTool
             else
                 del();            
         }
+
+        public DeployDMPS DeployDMPS { get; internal set; }
+
+        private void step1ButtonConnect_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.Connect();
+        }
+
+        private void step2ButtonRetrieveZIG_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.RetrieveZigFile();
+        }
+
+        private void step3ButtonParseSIG_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.UnzipAndParseSigFile();
+        }
+
+        private void step4ButtonGetSignals_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.GetCurrentSignals();
+        }
+
+        private void step5ButtonPushSPZ_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.SendSPZFile();
+        }
+
+        private void step6ButtonPushZig_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.SendNewZIGFile();
+        }
+
+        private void step7ButtonGetSignals_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.GetCurrentSignals2();
+        }
+
+        private void step8ButtonSetSignals_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.SetSignals();
+        }
+
+        private void step9ButtonGetDMPSDevices_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.GetDevicesFromDMPS();
+        }
+
+        private void step10ButtonGetTSPAddresses_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.GetTSPIPAddresses();
+        }
+
+        private void step11ButtonPushVTZFiles_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.SendNewVTZFiles();
+        }
+
+        private void stopProcessingButton_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.StopProcessing = true;
+        }
     }
 }
