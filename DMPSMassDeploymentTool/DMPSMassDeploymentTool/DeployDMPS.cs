@@ -34,9 +34,11 @@ namespace DMPSMassDeploymentTool
             UnzipAndParseSIG,
             GetCurrentSignals,
             PushNewSPZFile,
+            WaitForSystemToLoad,
             PushNewZigFile,
             ParseNewSigAndGetCurrentSignals2,
             SetSignals,
+            SaveAndReboot,
             GetDMPSDevices,
             GetUITouchPanelAddresses,
             PushVtzFiles
@@ -246,7 +248,7 @@ namespace DMPSMassDeploymentTool
                     Log("New SPZ file pushed");
 
                     if (StopProcessing) return;
-                    SendNewZIGFile();
+                    WaitForSystemToLoad();
                 }
                 else if (curStep == DeploymentStep.PushNewZigFile)
                 {                    
@@ -271,6 +273,13 @@ namespace DMPSMassDeploymentTool
                 else if (curStep == DeploymentStep.SetSignals)
                 {
                     SetNextSignal();
+                }
+                else if (curStep == DeploymentStep.SaveAndReboot)
+                {
+                    Log("Signals saved and device reboot initiated");
+                    if (StopProcessing) return;
+                    //trigger next step
+                    GetDevicesFromDMPS();
                 }
                 else if (curStep == DeploymentStep.GetDMPSDevices)
                 {
@@ -318,6 +327,23 @@ namespace DMPSMassDeploymentTool
                     signal.HasSignalValue = true;
                     signal.SignalValue = pszwParam;
                 }
+            }
+            else if (curStep == DeploymentStep.WaitForSystemToLoad && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
+            {
+                if (pszwParam == "1" && !startupBusy && lParam1 == startupBusySignal.SignalIndex)
+                {
+                    startupBusy = true;
+                }
+                else if (pszwParam == "0" && startupBusy && lParam1 == startupBusySignal.SignalIndex)
+                {
+                    startupBusy = false;
+                    Log("Startup busy has reset - going to next step");
+                    if (StopProcessing) return;
+                    SendNewZIGFile();
+                }
+
+                System.Threading.Thread.Sleep(5000);
+                WaitForSystemToLoad();
             }
 
             Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
@@ -439,6 +465,10 @@ namespace DMPSMassDeploymentTool
                     Log("\t" + signalList.Count.ToString() + " signals parsed");
             }
 
+            //parse new one since we have it, even though we don't use it yet
+            ParseNewSigFile();
+
+            if (StopProcessing) return;
 
             //start next step
             GetCurrentSignals();
@@ -482,9 +512,9 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + @"c:\temp\" + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
                 5000, ref transactionID, 0, 0);            
         }
-        public void GetCurrentSignals2()
+
+        public void ParseNewSigFile()
         {
-            curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
             Log("---------------");
             Log("Parsing new SIG file");
 
@@ -548,6 +578,12 @@ namespace DMPSMassDeploymentTool
                 if (signalListAfterDeployment.Count % 25 == 0)
                     Log("\t" + signalListAfterDeployment.Count.ToString() + " signals parsed");
             }
+        }
+
+        public void GetCurrentSignals2()
+        {
+            curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
+            
 
             Log("---------------");
             Log("Getting current signals from DMPS (again)....");
@@ -564,6 +600,12 @@ namespace DMPSMassDeploymentTool
             signalIndexToSet = 0;
             foreach (var oldSignal in signalList)
             {
+                if (oldSignal.SignalName.StartsWith("::") ||
+                    oldSignal.SignalName.StartsWith("//"))
+                {
+                    continue;
+                }
+
                 var newSignal = signalListAfterDeployment.Find(one => one.SignalName == oldSignal.SignalName);
 
                 if (newSignal != null)
@@ -594,6 +636,32 @@ namespace DMPSMassDeploymentTool
                 }
             }
 
+            foreach (var newSignal in signalListAfterDeployment)
+            {
+                if (newSignal.SignalName.StartsWith("::") ||
+                    newSignal.SignalName.StartsWith("//"))
+                {
+                    continue;
+                }
+
+                var oldSignal = signalList.Find(one => one.SignalName == newSignal.SignalName);
+
+                if (oldSignal == null)
+                {
+                    //new signal - make sure it didn't get a value
+                    if (newSignal.HasSignalValue && newSignal.SignalValue != "0" && newSignal.SignalValue != "")
+                    {
+                        //reset it
+                        if (newSignal.SignalType == 0)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                        else if (newSignal.SignalType == 1)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                        else if (newSignal.SignalType == 2)
+                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"", newSignal.SignalName));
+                    }
+                }
+            }
+
             System.IO.File.WriteAllLines(@"C:\temp\NeedToOutput.txt", signalsToSet.Select(one => one.Item1 + "|" + one.Item2));
 
             SetNextSignal();
@@ -607,7 +675,7 @@ namespace DMPSMassDeploymentTool
             {
                 //next step
                 if (StopProcessing) return;
-                GetDevicesFromDMPS();
+                SaveAndReboot();
             }
             else
             {
@@ -618,6 +686,20 @@ namespace DMPSMassDeploymentTool
                 Log("Setting " + command.Item2 + " [" + command.Item1 + "]");
                 vptSessionClass.AsyncActivateStr(0, command.Item1, 10000, ref curAPITransactionID, 0, 0);
             }
+        }
+
+        public void SaveAndReboot()
+        {
+            curStep = DeploymentStep.SaveAndReboot;
+            Log("---------------");
+            Log("Saving and rebooting....");
+
+            var signal = signalListAfterDeployment.Find(one => one.SignalName == "Store_Settings");
+
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgPulseDigital " + signal.SignalIndex + ", 50", ref output, 10000, 0);
+
+            vptSessionClass.AsyncActivateStr(0, "ProgramRestart", 10000, ref curAPITransactionID, 0, 0);
         }
 
         string[] DeviceResultsFromDMPS;
@@ -664,13 +746,28 @@ namespace DMPSMassDeploymentTool
             }
         }
 
+        bool startupBusy = false;
+        CrestronSignal startupBusySignal;
+
+        public void WaitForSystemToLoad()
+        {
+            curStep = DeploymentStep.WaitForSystemToLoad;
+            Log("---Waiting for system to load--- [" + startupBusy + "]");
+            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "Initialize_busy");            
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+        }
+
         List<string> vtzIPAddresses = new List<string>();
         int vtzIndex = 0;
         public void SendNewVTZFiles()
         {
+            string output = "";
+            
             curStep = DeploymentStep.PushVtzFiles;
             Log("---------------");
             Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");
+
+            return;
 
             vtzIndex = 0;
 

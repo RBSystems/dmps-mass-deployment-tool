@@ -119,5 +119,15 @@ namespace DMPSMassDeploymentTool
         {
             DeployDMPS.StopProcessing = true;
         }
+
+        private void step65WaitForSystemToLoadButton_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.WaitForSystemToLoad();
+        }
+
+        private void step85SaveAndRebootButton_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.SaveAndReboot();
+        }
     }
 }

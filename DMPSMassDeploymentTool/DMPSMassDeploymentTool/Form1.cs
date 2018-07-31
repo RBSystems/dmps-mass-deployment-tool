@@ -187,7 +187,13 @@ namespace DMPSMassDeploymentTool
             cls.OnTaskProgress += Cls_OnTaskProgress;
             cls.OnTaskComplete += Cls_OnTaskComplete;
             cls.OnActivateStrComplete += Cls_OnActivateStrComplete;
+            cls.OnEvent += Cls_OnEvent;
             cls.OpenSession("auto 10.66.9.110", "10.66.9.110");
+        }
+
+        private void Cls_OnEvent(int nTransactionID, [System.Runtime.InteropServices.ComAliasName("VPTCOMSERVERLib.EVptEventType")] VPTCOMSERVERLib.EVptEventType nEventType, int lParam1, int lParam2, string pszwParam)
+        {
+            int x = 1;
         }
 
         private void Cls_OnTaskComplete(int nTransactionID, byte bSuccess)
@@ -204,7 +210,7 @@ namespace DMPSMassDeploymentTool
         private void Cls_OnSessionReady()
         {
             int nTxnID = 0;
-            cls.AsyncActivateStr(0, @"SubNetworkReportDevice 2, 13", 10000, ref nTxnID, 0, 0);
+            cls.AsyncActivateStr(0, @"SignalDbgStatus 4625", 10000, ref nTxnID, 0, 0);
         }
 
         private void Cls_OnTaskProgress(int nTransactionID, int nPercentageDone, string pszwProgressDescription, int lParam)
