@@ -4,14 +4,17 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace DMPSMassDeploymentTool
 {
     public class DeployDMPS : IDisposable
     {
         public delegate void MyEventHandler (string message);
+        public delegate void StepChangedEventHandler(DeploymentStep step);
         public event MyEventHandler OnDMPSDeployedSuccessfully;
         public event MyEventHandler OnDMPSDeploymentFatalError;
+        public event StepChangedEventHandler OnStepChanged;
 
         public string DMPSHostName;
         public string DMPSIPAddress;
@@ -27,7 +30,7 @@ namespace DMPSMassDeploymentTool
             this.NewVTZFileName = vtzFilename;
         }
 
-        enum DeploymentStep
+        public enum DeploymentStep
         {
             Connect,
             RetrieveZIG,
@@ -60,16 +63,30 @@ namespace DMPSMassDeploymentTool
         }
 
         void Log(string m)
-        {
+        {            
             logForm.Log(DateTime.Now.ToString("hh:mm:ss.fff") + " - " + m);
         }
 
-        public void StartDeployment()
+        public string TempDirectory
+        {
+            get
+            {
+                var x = @"C:\Temp\DMPSDeploy\" + DMPSIPAddress + @"\";
+                if (!System.IO.Directory.Exists(x))
+                    System.IO.Directory.CreateDirectory(x);
+
+                return x;
+            }
+        }
+
+        public void StartDeployment(Form1 masterForm)
         {
             //create the running form and show it
             logForm = new RunningForm();
             logForm.DeployDMPS = this;
             logForm.Show();
+            this.OnStepChanged += logForm.DeployDMPS_OnStepChanged;
+            
             Log("Starting Deployment for " + DMPSHostName + " [" + DMPSIPAddress + "]");
 
             curStep = DeploymentStep.Connect;
@@ -96,12 +113,6 @@ namespace DMPSMassDeploymentTool
             logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
 
             Connect();
-        }
-
-        public void Connect()
-        {
-            //connect
-            int connect = vptSessionClass.OpenSession("auto " + DMPSIPAddress, DMPSIPAddress);
         }
 
         private void VptSessionClass_OnFileXferBatchStart(int nTransactionID, string pszwDescription, int nTotalFiles, int nTotalSize)
@@ -178,14 +189,9 @@ namespace DMPSMassDeploymentTool
 
         private void VptSessionClass_OnSessionReady()
         {
-            Log("\tAPI On Session Ready");
+            Log("\tAPI On Session Ready");            
 
-            if (curStep == DeploymentStep.Connect)
-            {
-                //kick off the next step
-                Log("Connect complete.");
-                RetrieveZigFile();
-            }
+            FigureOutNextStepAfterConnect();
         }
 
         private void VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
@@ -223,24 +229,15 @@ namespace DMPSMassDeploymentTool
                     int count = signalList.Count(one => one.HasSignalValue);
                     Log("Current Signals complete - " + count + " out of " + signalList.Count + " retrieved current values");
 
-                    string[] debug =
-                        signalList.Select(one => one.SignalName + "|" + one.SignalIndex + "|" + one.SignalValue).ToArray();
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
 
-                    System.IO.File.WriteAllLines(@"C:\temp\CurrentSignals.txt", debug);
+                    if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
 
                     if (StopProcessing) return;
-                    //var x = signalList.Find(one => one.SignalName == "Local_Input_Type_tx$");
-
-                    //Log(x.SignalType.ToString());
-                    //Log(x.SignalValue);
-
-                    //x = signalList.Find(one => one.SignalName == "TP1_Mic1_Volume");
-                    //Log(x.SignalType.ToString());
-                    //Log(x.SignalValue);
-
-                    //x = signalList.Find(one => one.SignalName == "TP_Online");
-                    //Log(x.SignalType.ToString());
-                    //Log(x.SignalValue);
+                    
                     SendSPZFile();
                 }
                 else if (curStep == DeploymentStep.PushNewSPZFile)
@@ -254,6 +251,11 @@ namespace DMPSMassDeploymentTool
                 {                    
                     Log("New ZIG file pushed");
 
+                    if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt"))
+                        System.IO.File.Delete(TempDirectory + "PushDMPSFilesComplete.txt");
+
+                    System.IO.File.WriteAllText(TempDirectory + "PushDMPSFilesComplete.txt", "DMPS Files pushed complete on " + DateTime.Now.ToString());
+                    
                     if (StopProcessing) return;
                     GetCurrentSignals2();
                 }
@@ -262,10 +264,12 @@ namespace DMPSMassDeploymentTool
                     int count = signalListAfterDeployment.Count(one => one.HasSignalValue);
                     Log("New Signals complete - " + count + " out of " + signalListAfterDeployment.Count + " retrieved current values");
 
-                    string[] debug =
-                        signalListAfterDeployment.Select(one => one.SignalName + "|" + one.SignalIndex + "|" + one.SignalValue).ToArray();
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
 
-                    System.IO.File.WriteAllLines(@"C:\temp\NewSignals.txt", debug);
+                    if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "NewSignalsComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsComplete.json", signalListJson);
 
                     if (StopProcessing) return;
                     SetSignals();
@@ -277,6 +281,12 @@ namespace DMPSMassDeploymentTool
                 else if (curStep == DeploymentStep.SaveAndReboot)
                 {
                     Log("Signals saved and device reboot initiated");
+
+                    if (System.IO.File.Exists(TempDirectory + "NewSignalsSet.txt"))
+                        System.IO.File.Delete(TempDirectory + "NewSignalsSet.txt");
+
+                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsSet.txt", "New Signals set on " + DateTime.Now.ToString());
+
                     if (StopProcessing) return;
                     //trigger next step
                     GetDevicesFromDMPS();
@@ -330,16 +340,12 @@ namespace DMPSMassDeploymentTool
             }
             else if (curStep == DeploymentStep.WaitForSystemToLoad && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
             {
-                if (pszwParam == "1" && !startupBusy && lParam1 == startupBusySignal.SignalIndex)
+                if (pszwParam == "0" && lParam1 == startupBusySignal.SignalIndex)
                 {
-                    startupBusy = true;
-                }
-                else if (pszwParam == "0" && startupBusy && lParam1 == startupBusySignal.SignalIndex)
-                {
-                    startupBusy = false;
                     Log("Startup busy has reset - going to next step");
                     if (StopProcessing) return;
                     SendNewZIGFile();
+                    return;
                 }
 
                 System.Threading.Thread.Sleep(5000);
@@ -353,20 +359,197 @@ namespace DMPSMassDeploymentTool
         {
             Log("\tAPI On Debug String - nTransactionID:[" + nTransactionID + "], nCategory:[" + nCategory + "], data:[" + pszwData + "]");
         }
+                
+        public void FigureOutNextStepAfterConnect()
+        {
+            if (StopProcessing) return;
+
+            //determine if we need to resume
+            if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have finished a deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    curStep = DeploymentStep.RetrieveZIG;
+                    System.IO.Directory.Delete(TempDirectory, true);
+                    var x = TempDirectory; //this will force it to recreate because I put it in the get { }
+                }
+                else
+                {
+                    return;
+                }
+            }
+            else if (System.IO.File.Exists(TempDirectory + "NewSignalsSet.txt"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - start vtz files?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    LoadOldSignalsCompleteFromFile();
+                    LoadNewSignalsCompleteFromFile();
+                    curStep = DeploymentStep.GetDMPSDevices;
+                }
+                else
+                {
+                    if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " was mid-deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                    {
+                        curStep = DeploymentStep.RetrieveZIG;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+            else if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress + 
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - set signals?", "", 
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    LoadOldSignalsCompleteFromFile();
+                    LoadNewSignalsCompleteFromFile();
+                    curStep = DeploymentStep.SetSignals;
+                }
+                else
+                {
+                    if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " was mid-deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                    {
+                        curStep = DeploymentStep.RetrieveZIG;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+            else if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - get new signals?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    LoadOldSignalsCompleteFromFile();
+                    LoadNewSignalsFromFile();
+                    curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
+                }
+                else
+                {
+                    if(MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " was mid-deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                    {
+                        curStep = DeploymentStep.RetrieveZIG;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+            else if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - push files to DMPS?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    LoadOldSignalsCompleteFromFile();
+                    LoadNewSignalsFromFile();
+                    curStep = DeploymentStep.PushNewSPZFile;
+                }
+                else
+                {
+                    if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " was mid-deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                    {
+                        curStep = DeploymentStep.RetrieveZIG;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+            else if (System.IO.File.Exists(TempDirectory + "NewSignals.json"))
+            {
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - get current signals?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    LoadOldSignalsFromFile();
+                    LoadNewSignalsFromFile();
+                    curStep = DeploymentStep.GetCurrentSignals;
+                }
+                else
+                {
+                    if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " was mid-deployment.  Do you want to start over?", "",
+                        MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                    {
+                        curStep = DeploymentStep.RetrieveZIG;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+            }
+
+            var step = curStep;
+
+            if (step == DeployDMPS.DeploymentStep.Connect)
+                RetrieveZigFile(); //this one is the only one that is differnet - the rest are more like a "resume"
+            else if (step == DeployDMPS.DeploymentStep.RetrieveZIG)
+                RetrieveZigFile();
+            else if (step == DeployDMPS.DeploymentStep.UnzipAndParseSIG)
+                UnzipAndParseSigFile();
+            else if (step == DeployDMPS.DeploymentStep.GetCurrentSignals)
+                GetCurrentSignals();
+            else if (step == DeployDMPS.DeploymentStep.PushNewSPZFile)
+                SendSPZFile();
+            else if (step == DeployDMPS.DeploymentStep.PushNewZigFile)
+                SendNewZIGFile();
+            else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad)
+                WaitForSystemToLoad();
+            else if (step == DeployDMPS.DeploymentStep.ParseNewSigAndGetCurrentSignals2)
+                GetCurrentSignals2();
+            else if (step == DeployDMPS.DeploymentStep.SetSignals)
+                SetSignals();
+            else if (step == DeployDMPS.DeploymentStep.SaveAndReboot)
+                SaveAndReboot();
+            else if (step == DeployDMPS.DeploymentStep.GetDMPSDevices)
+                GetDevicesFromDMPS();
+            else if (step == DeployDMPS.DeploymentStep.GetUITouchPanelAddresses)
+                GetTSPIPAddresses();
+            else if (step == DeployDMPS.DeploymentStep.PushVtzFiles)
+                SendNewVTZFiles();
+        }
+        public void Connect()
+        {
+            //connect
+            int connect = vptSessionClass.OpenSession("auto " + DMPSIPAddress, DMPSIPAddress);
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
+            string x = output;
+        }
 
         public void RetrieveZigFile()
         {
             curStep = DeploymentStep.RetrieveZIG;
             Log("---------------------");
-            Log("Step 2 - Retrieving ZIG file");
-            if (!System.IO.Directory.Exists(@"C:\temp\"))
-                System.IO.Directory.CreateDirectory(@"C:\temp\");
+            Log("Step 2 - Retrieving ZIG file");            
 
-            if (System.IO.File.Exists(@"C:\temp\TEC HD.zig"))
-                System.IO.File.Delete(@"C:\temp\TEC HD.zig");
+            if (System.IO.File.Exists(TempDirectory + "TEC HD.zig"))
+                System.IO.File.Delete(TempDirectory + "TEC HD.zig");
 
             string outputs = "";
-            vptSessionClass.AsyncActivateStr(0, @"FileXferGet ""\SIMPL\TEC HD.zig"" ""c:\temp\TEC HD.zig""", 10000, ref curAPITransactionID, 0, 0);
+            vptSessionClass.AsyncActivateStr(0, @"FileXferGet ""\SIMPL\TEC HD.zig"" """ + TempDirectory + "TEC HD.zig\"", 10000, ref curAPITransactionID, 0, 0);
 
             Log("\tTransaction ID:[" + curAPITransactionID + "]");
             Log("\tFileXferGet Output:[" + outputs + "]");
@@ -400,12 +583,12 @@ namespace DMPSMassDeploymentTool
             Log("---------------");
             Log("Unzipping and parsing SIG file");
 
-            if (System.IO.Directory.Exists(@"C:\temp\TEC HD\"))
-                System.IO.Directory.Delete(@"C:\temp\TEC HD\", true);
+            if (System.IO.Directory.Exists(TempDirectory + @"TEC HD\"))
+                System.IO.Directory.Delete(TempDirectory + @"TEC HD\", true);
 
-            System.IO.Compression.ZipFile.ExtractToDirectory(@"C:\temp\TEC HD.zig", @"C:\temp\TEC HD\");
+            System.IO.Compression.ZipFile.ExtractToDirectory(TempDirectory + @"TEC HD.zig", TempDirectory +  @"TEC HD\");
 
-            byte[] sigFile = System.IO.File.ReadAllBytes(@"C:\temp\TEC HD\TEC HD.sig");
+            byte[] sigFile = System.IO.File.ReadAllBytes(TempDirectory + @"TEC HD\TEC HD.sig");
 
             signalList.Clear();
 
@@ -465,6 +648,14 @@ namespace DMPSMassDeploymentTool
                     Log("\t" + signalList.Count.ToString() + " signals parsed");
             }
 
+            //save it
+            var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
+            
+            if (System.IO.File.Exists(TempDirectory + "OldSignals.json"))
+                System.IO.File.Delete(TempDirectory + "OldSignals.json");
+
+            System.IO.File.WriteAllText(TempDirectory + "OldSignals.json", signalListJson);
+
             //parse new one since we have it, even though we don't use it yet
             ParseNewSigFile();
 
@@ -472,6 +663,30 @@ namespace DMPSMassDeploymentTool
 
             //start next step
             GetCurrentSignals();
+        }
+
+        public void LoadOldSignalsFromFile()
+        {
+            signalList = new List<CrestronSignal>(
+                Newtonsoft.Json.JsonConvert.DeserializeObject<CrestronSignal[]>(System.IO.File.ReadAllText(TempDirectory + "OldSignals.json")));
+        }
+
+        public void LoadOldSignalsCompleteFromFile()
+        {
+            signalList = new List<CrestronSignal>(
+                Newtonsoft.Json.JsonConvert.DeserializeObject<CrestronSignal[]>(System.IO.File.ReadAllText(TempDirectory + "OldSignalsComplete.json")));
+        }
+
+        public void LoadNewSignalsFromFile()
+        {
+            signalListAfterDeployment = new List<CrestronSignal>(
+                Newtonsoft.Json.JsonConvert.DeserializeObject<CrestronSignal[]>(System.IO.File.ReadAllText(TempDirectory + "NewSignals.json")));
+        }
+
+        public void LoadNewSignalsCompleteFromFile()
+        {
+            signalListAfterDeployment = new List<CrestronSignal>(
+                Newtonsoft.Json.JsonConvert.DeserializeObject<CrestronSignal[]>(System.IO.File.ReadAllText(TempDirectory + "NewSignalsComplete.json")));
         }
 
         public void GetCurrentSignals()
@@ -502,14 +717,14 @@ namespace DMPSMassDeploymentTool
             string sigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".sig");
             string zigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".zig");
 
-            if (System.IO.File.Exists(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName)))
-                System.IO.File.Delete(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName));
+            if (System.IO.File.Exists(TempDirectory + System.IO.Path.GetFileName(zigFileName)))
+                System.IO.File.Delete(TempDirectory + System.IO.Path.GetFileName(zigFileName));
 
-            using (var zip = ZipFile.Open(@"c:\temp\" + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
+            using (var zip = ZipFile.Open(TempDirectory + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
                 zip.CreateEntryFromFile(sigFileName, System.IO.Path.GetFileName(sigFileName));
 
             int transactionID = 0;
-            vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + @"c:\temp\" + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
+            vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + TempDirectory + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
                 5000, ref transactionID, 0, 0);            
         }
 
@@ -578,6 +793,14 @@ namespace DMPSMassDeploymentTool
                 if (signalListAfterDeployment.Count % 25 == 0)
                     Log("\t" + signalListAfterDeployment.Count.ToString() + " signals parsed");
             }
+
+            //save it
+            var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
+
+            if (System.IO.File.Exists(TempDirectory + "NewSignals.json"))
+                System.IO.File.Delete(TempDirectory + "NewSignals.json");
+
+            System.IO.File.WriteAllText(TempDirectory + "NewSignals.json", signalListJson);
         }
 
         public void GetCurrentSignals2()
@@ -662,7 +885,7 @@ namespace DMPSMassDeploymentTool
                 }
             }
 
-            System.IO.File.WriteAllLines(@"C:\temp\NeedToOutput.txt", signalsToSet.Select(one => one.Item1 + "|" + one.Item2));
+            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt", signalsToSet.Select(one => one.Item1 + "|" + one.Item2));
 
             SetNextSignal();
         }
@@ -745,15 +968,15 @@ namespace DMPSMassDeploymentTool
                 deviceToQueryIndex = deviceToQueryIndex + 2;
             }
         }
-
-        bool startupBusy = false;
+                
         CrestronSignal startupBusySignal;
 
         public void WaitForSystemToLoad()
         {
-            curStep = DeploymentStep.WaitForSystemToLoad;
-            Log("---Waiting for system to load--- [" + startupBusy + "]");
-            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "Initialize_busy");            
+            curStep = DeploymentStep.WaitForSystemToLoad;            
+            Log("---Waiting for system to load---");
+            System.Threading.Thread.Sleep(30000);
+            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");            
             vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
         }
 
@@ -761,13 +984,11 @@ namespace DMPSMassDeploymentTool
         int vtzIndex = 0;
         public void SendNewVTZFiles()
         {
-            string output = "";
-            
             curStep = DeploymentStep.PushVtzFiles;
             Log("---------------");
             Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");
 
-            return;
+            //return;
 
             vtzIndex = 0;
 
@@ -779,7 +1000,16 @@ namespace DMPSMassDeploymentTool
             vtzClass.OnFileXferFileStart += VtzClass_OnFileXferFileStart;
             vtzClass.OnFileXferFileProgress += VtzClass_OnFileXferFileProgress;
             vtzClass.OnFileXferFileFinish += VtzClass_OnFileXferFileFinish;
-            vtzClass.OnFileXferBatchFinish += VtzClass_OnFileXferBatchFinish;            
+            vtzClass.OnFileXferBatchFinish += VtzClass_OnFileXferBatchFinish;
+            vtzClass.OnActivateStrComplete += VtzClass_OnActivateStrComplete;
+
+            SendNextVTZFile();
+        }
+
+        private void VtzClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
+        {
+            Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
+               "bSuccess:[" + bSuccess + "]");
 
             SendNextVTZFile();
         }
@@ -787,9 +1017,7 @@ namespace DMPSMassDeploymentTool
         private void VtzClass_OnFileXferBatchFinish(int nTransactionID, byte bSuccess)
         {
             Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
-               "bSuccess:[" + bSuccess + "]");
-                        
-            SendNextVTZFile();
+               "bSuccess:[" + bSuccess + "]");                        
         }
 
         private void VtzClass_OnFileXferFileFinish(int nTransactionID, byte bSuccess)
@@ -835,10 +1063,32 @@ namespace DMPSMassDeploymentTool
 
         public void SendNextVTZFile()
         {
-            string ip = vtzIPAddresses[vtzIndex];
-            vtzIndex++;
-            vtzClass.CloseSession();
-            vtzClass.OpenSession("auto " + ip, ip);
+            if (vtzIndex == vtzIPAddresses.Count)
+            {
+                //all done
+                if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
+                    System.IO.File.Delete(TempDirectory + "DeploymentComplete.txt");
+
+                System.IO.File.WriteAllText(TempDirectory + "DeploymentComplete.txt", "Deployment Complete on " + DateTime.Now.ToString());
+
+                if (OnDMPSDeployedSuccessfully != null)
+                {
+                    OnDMPSDeployedSuccessfully("DMPS " + DMPSHostName + " / " + DMPSIPAddress + " Deployment Complete!");
+                }
+
+                logForm.CloseForm();
+
+            }
+            else
+            {
+                string ip = vtzIPAddresses[vtzIndex];
+                vtzIndex++;
+                vtzClass.CloseSession();
+                vtzClass.OpenSession("auto " + ip, ip);
+                Log("Connection to session on TouchPanel " + ip);
+                string output = "";
+                vtzClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
+            }
         }
     }
 }

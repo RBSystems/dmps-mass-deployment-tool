@@ -24,11 +24,68 @@ namespace DMPSMassDeploymentTool
                 System.IO.Directory.CreateDirectory(dirName);
             }
         }
+        public void DeployDMPS_OnStepChanged(DeployDMPS.DeploymentStep step)
+        {
+            step1ButtonConnect.Font = new Font(step1ButtonConnect.Font, FontStyle.Regular);
+            step2ButtonRetrieveZIG.Font = new Font(step2ButtonRetrieveZIG.Font, FontStyle.Regular);
+            step3ButtonParseSIG.Font = new Font(step3ButtonParseSIG.Font, FontStyle.Regular);
+            step4ButtonGetSignals.Font = new Font(step4ButtonGetSignals.Font, FontStyle.Regular);
+            step5ButtonPushSPZ.Font = new Font(step5ButtonPushSPZ.Font, FontStyle.Regular);
+            step6ButtonPushZig.Font = new Font(step6ButtonPushZig.Font, FontStyle.Regular);
+            step65WaitForSystemToLoadButton.Font = new Font(step65WaitForSystemToLoadButton.Font, FontStyle.Regular);
+            step7ButtonGetSignals.Font = new Font(step7ButtonGetSignals.Font, FontStyle.Regular);
+            step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Regular);
+            step85SaveAndRebootButton.Font = new Font(step85SaveAndRebootButton.Font, FontStyle.Regular);
+            step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Regular);
+            step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Regular);
+            step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Regular);
+            
+            if (step == DeployDMPS.DeploymentStep.Connect)
+                step1ButtonConnect.Font = new Font(step1ButtonConnect.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.RetrieveZIG)
+                step2ButtonRetrieveZIG.Font = new Font(step2ButtonRetrieveZIG.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.UnzipAndParseSIG)
+                step3ButtonParseSIG.Font = new Font(step3ButtonParseSIG.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.GetCurrentSignals)
+                step4ButtonGetSignals.Font = new Font(step4ButtonGetSignals.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.PushNewSPZFile)
+                step5ButtonPushSPZ.Font = new Font(step5ButtonPushSPZ.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.PushNewZigFile)
+                step6ButtonPushZig.Font = new Font(step6ButtonPushZig.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad)
+                step65WaitForSystemToLoadButton.Font = new Font(step65WaitForSystemToLoadButton.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.GetCurrentSignals)
+                step7ButtonGetSignals.Font = new Font(step7ButtonGetSignals.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.SetSignals)
+                step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.SaveAndReboot)
+                step85SaveAndRebootButton.Font = new Font(step85SaveAndRebootButton.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.GetDMPSDevices)
+                step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.GetUITouchPanelAddresses)
+                step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.PushVtzFiles)
+                step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Bold);
+        }
+
 
         string logFileName = "";
         string currentHeader = "";
         List<string> inMemory = new List<string>();
         DateTime lastSave = DateTime.Now;
+
+        public void CloseForm()
+        {
+            MethodInvoker del = delegate ()
+            {
+                this.Close();
+            };
+
+            if (this.InvokeRequired)
+                this.Invoke(del);
+            else
+                del();
+        }
 
         public void Log(string message)
         {
@@ -49,7 +106,7 @@ namespace DMPSMassDeploymentTool
                 logListBox.Update();
 
                 if (DateTime.Now.Subtract(lastSave).TotalSeconds >= 5)
-                    System.IO.File.WriteAllLines(@"C:\temp\DMPSDeployment.log", inMemory);
+                    System.IO.File.WriteAllLines(DeployDMPS.TempDirectory + logFileName, inMemory);
             };
 
             if (this.InvokeRequired)

@@ -12,6 +12,7 @@ using System.Configuration;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using System.IO.Compression;
+using System.Threading;
 
 namespace DMPSMassDeploymentTool
 {
@@ -96,6 +97,8 @@ namespace DMPSMassDeploymentTool
                     one.hostName.ToLower().Contains(filterText.Text.ToLower()) || 
                     one.ipAddress.ToLower().Contains(filterText.Text.ToLower()));
 
+            queryResults.Sort((a, b) => a.hostName.CompareTo(b.hostName));
+
             dmpsList.Items.Clear();
             queryResults.ForEach(one => dmpsList.Items.Add(one));
         }
@@ -138,12 +141,34 @@ namespace DMPSMassDeploymentTool
                 if (MessageBox.Show("Last Chance.....are you really, really sure???", "Really sure?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                 {
                     ToUpdateList = new List<DMPSAddress>();
+
+                    //List<Thread> WorkerThreads = new List<Thread>();
+
                     foreach (var checkedItem in dmpsList.CheckedItems)
-                        ToUpdateList.Add(checkedItem as DMPSAddress);
+                    {
+                        //ToUpdateList.Add(checkedItem as DMPSAddress);
+                        var thisDMPS = checkedItem as DMPSAddress;
+                        //Thread thread = new Thread(() =>
+                        //{
+                            DeployDMPS deploy = new DeployDMPS(thisDMPS.hostName, thisDMPS.ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
+                            deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
+                            deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
+                            deploy.StartDeployment(this);
 
-                    CurUpdateIndex = -1;
+                            //RunningForm form = new RunningForm();
+                            //this.Invoke((MethodInvoker)delegate { form.Show(); });
 
-                    UpdateNextDMPS();
+                            //DateTime test = DateTime.Now.AddSeconds(5);
+                            //while (DateTime.Now < test) ;
+                        //});
+
+                        //WorkerThreads.Add(thread);
+                        //thread.Start();
+                    }
+
+                    //CurUpdateIndex = -1;
+
+                    //UpdateNextDMPS();                    
                 }
             }
         }
@@ -160,7 +185,7 @@ namespace DMPSMassDeploymentTool
                 DeployDMPS deploy = new DeployDMPS(ToUpdateList[CurUpdateIndex].hostName, ToUpdateList[CurUpdateIndex].ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
                 deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
                 deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
-                deploy.StartDeployment();
+                //deploy.StartDeployment();
             }
         }
 
@@ -168,13 +193,13 @@ namespace DMPSMassDeploymentTool
         {
             MessageBox.Show("Error! - " + message);
 
-            if (MessageBox.Show("Do you want to continue", "Continue?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
-                UpdateNextDMPS();
+            //if (MessageBox.Show("Do you want to continue", "Continue?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                //UpdateNextDMPS();
         }
 
         private void Deploy_OnDMPSDeployedSuccessfully(string message)
         {
-            UpdateNextDMPS();
+            //UpdateNextDMPS();
         }
 
         RunningForm runnerForm;
