@@ -54,7 +54,7 @@ namespace DMPSMassDeploymentTool
                 step6ButtonPushZig.Font = new Font(step6ButtonPushZig.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad)
                 step65WaitForSystemToLoadButton.Font = new Font(step65WaitForSystemToLoadButton.Font, FontStyle.Bold);
-            else if (step == DeployDMPS.DeploymentStep.GetCurrentSignals)
+            else if (step == DeployDMPS.DeploymentStep.ParseNewSigAndGetCurrentSignals2)
                 step7ButtonGetSignals.Font = new Font(step7ButtonGetSignals.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.SetSignals)
                 step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Bold);
@@ -185,6 +185,11 @@ namespace DMPSMassDeploymentTool
         private void step85SaveAndRebootButton_Click(object sender, EventArgs e)
         {
             DeployDMPS.SaveAndReboot();
+        }
+
+        private void nudgeButton_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.Nudge();
         }
     }
 }

@@ -5,12 +5,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Net.Sockets;
+using System.Net;
+using System.IO;
 
 namespace DMPSMassDeploymentTool
 {
     public class DeployDMPS : IDisposable
     {
-        public delegate void MyEventHandler (string message);
+        public delegate void MyEventHandler(string message);
         public delegate void StepChangedEventHandler(DeploymentStep step);
         public event MyEventHandler OnDMPSDeployedSuccessfully;
         public event MyEventHandler OnDMPSDeploymentFatalError;
@@ -48,8 +51,21 @@ namespace DMPSMassDeploymentTool
         }
 
         DeploymentStep curStep;
+        DeploymentStep CurStep
+        {
+            get { return curStep; }
+            set
+            {
+                curStep = value;
+
+                OnStepChanged?.Invoke(curStep);
+            }
+        }
+
+        public Dictionary<DeploymentStep, int> TxnIDs = new Dictionary<DeploymentStep, int>();
+
+
         RunningForm logForm;
-        int curAPITransactionID;
         int retryNumber = 0;
 
         VPTCOMSERVERLib.VptSessionClass vptSessionClass { get; set; }
@@ -63,7 +79,7 @@ namespace DMPSMassDeploymentTool
         }
 
         void Log(string m)
-        {            
+        {
             logForm.Log(DateTime.Now.ToString("hh:mm:ss.fff") + " - " + m);
         }
 
@@ -86,18 +102,18 @@ namespace DMPSMassDeploymentTool
             logForm.DeployDMPS = this;
             logForm.Show();
             this.OnStepChanged += logForm.DeployDMPS_OnStepChanged;
-            
+
             Log("Starting Deployment for " + DMPSHostName + " [" + DMPSIPAddress + "]");
 
-            curStep = DeploymentStep.Connect;
+            CurStep = DeploymentStep.Connect;
 
             //create the COM API object
             vptSessionClass = new VPTCOMSERVERLib.VptSessionClass();
 
             //listen to events
-            vptSessionClass.OnActivateComplete += VptSessionClass_OnActivateComplete;            
+            vptSessionClass.OnActivateComplete += VptSessionClass_OnActivateComplete;
             vptSessionClass.OnActivateStrComplete += VptSessionClass_OnActivateStrComplete;
-            vptSessionClass.OnAsyncActivateStart += VptSessionClass_OnAsyncActivateStart;            
+            vptSessionClass.OnAsyncActivateStart += VptSessionClass_OnAsyncActivateStart;
             vptSessionClass.OnDebugString += VptSessionClass_OnDebugString;
             vptSessionClass.OnEvent += VptSessionClass_OnEvent;
             vptSessionClass.OnFileXferBatchFinish += VptSessionClass_OnFileXferBatchFinish;
@@ -154,7 +170,7 @@ namespace DMPSMassDeploymentTool
         {
             Log("\tAPI On Task Progress - nTransactionID:[" + nTransactionID + "], " +
                "nPercentageDone:[" + nPercentageDone + "], " +
-               "pszwProgressDescription:[" + pszwProgressDescription + "], " + 
+               "pszwProgressDescription:[" + pszwProgressDescription + "], " +
                "lParam:[" + lParam + "]");
         }
 
@@ -170,7 +186,7 @@ namespace DMPSMassDeploymentTool
             Log("\tAPI On File Xfer File Finish - nTransactionID:[" + nTransactionID + "], " +
                 "bSuccess:[" + bSuccess + "]");
         }
-        
+
         private void VptSessionClass_OnFileXferFileProgress(int nTransactionID, int nFileBytesTransferred, int nTotalBytesTransferred, int nBytesPerSecond, int nEstTotalTimeRemaining)
         {
             Log("\tAPI On File Xfer File Progress - nTransactionID:[" + nTransactionID + "], " +
@@ -181,104 +197,124 @@ namespace DMPSMassDeploymentTool
 
         private void VptSessionClass_OnFileXferFileStart(int nTransactionID, string pszwLocalFilename, string pszwRemoteFilename, int nSize, byte bSending, string pszwProtocolName)
         {
-            Log("\tAPI On File Xfer File Start - nTransactionID:[" + nTransactionID + "], " + 
-                "pszwLocalFilename:[" + pszwLocalFilename + "], " + 
-                "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " + 
+            Log("\tAPI On File Xfer File Start - nTransactionID:[" + nTransactionID + "], " +
+                "pszwLocalFilename:[" + pszwLocalFilename + "], " +
+                "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " +
                 "bSending:[" + bSending + "], pszwProtocolName :[" + pszwProtocolName + "]");
         }
 
         private void VptSessionClass_OnSessionReady()
         {
-            Log("\tAPI On Session Ready");            
+            Log("\tAPI On Session Ready");
+
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
 
             FigureOutNextStepAfterConnect();
         }
 
+
+
         private void VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
         {
-            Log("\tAPI On Activate Str Complete - nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], bSuccess:[" + bSuccess + "], " + 
+            Log("\tAPI On Activate Str Complete - nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], bSuccess:[" + bSuccess + "], " +
                 "pszOutputs:[" + pszOutputs + "], nUserPassBack:[" + nUserPassBack + "]");
-            
+
             if (bSuccess == 0)
             {
-                if (curStep == DeploymentStep.RetrieveZIG && retryNumber < 5)
+                if (CurStep == DeploymentStep.RetrieveZIG && retryNumber < 5)
                 {
                     if (StopProcessing) return;
                     RetrieveZigFile();
                     retryNumber++;
                 }
-                else if (curStep == DeploymentStep.SetSignals)
+                else if (CurStep == DeploymentStep.SetSignals)
                 {
+                    Log("No Signal set success recieved...Retrying...");
+                    signalIndexToSet--;
                     SetNextSignal();
                 }
             }
             else
             {
-                if (curStep == DeploymentStep.RetrieveZIG)
+                if (CurStep == DeploymentStep.RetrieveZIG && TxnIDs[CurStep] == nTransactionID)
                 {
-                    if (nTransactionID == curAPITransactionID)
+                    if (StopProcessing) return;
+                    //start the next step
+                    Log("ZIG file Xfer complete");
+                    UnzipAndParseSigFile();
+                }
+                else if (CurStep == DeploymentStep.GetCurrentSignals && TxnIDs[CurStep] == nTransactionID)
+                {
+                    if (signalList[NextOldSignalIndex].HasSignalValue)
                     {
-                        if (StopProcessing) return;
-                        //start the next step
-                        Log("ZIG file Xfer complete");
-                        UnzipAndParseSigFile();                        
+                        Log("Signal received");
+                        GetNextOldSignal();
+                    }
+                    else
+                    {
+                        Log("Signal not received...");
+                        NextOldSignalIndex--;
+                        GetNextOldSignal();
                     }
                 }
-                else if (curStep == DeploymentStep.GetCurrentSignals)
+                else if (CurStep == DeploymentStep.PushNewSPZFile && (TxnIDs[CurStep] == nTransactionID || TxnIDs[CurStep] == 0))
                 {
-                    int count = signalList.Count(one => one.HasSignalValue);
-                    Log("Current Signals complete - " + count + " out of " + signalList.Count + " retrieved current values");
-
-                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
-
-                    if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
-                        System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
-
-                    System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
-
-                    if (StopProcessing) return;
-                    
-                    SendSPZFile();
-                }
-                else if (curStep == DeploymentStep.PushNewSPZFile)
-                {                    
                     Log("New SPZ file pushed");
 
                     if (StopProcessing) return;
                     WaitForSystemToLoad();
                 }
-                else if (curStep == DeploymentStep.PushNewZigFile)
-                {                    
+                else if (CurStep == DeploymentStep.PushNewZigFile && TxnIDs[CurStep] == nTransactionID)
+                {
                     Log("New ZIG file pushed");
 
                     if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt"))
                         System.IO.File.Delete(TempDirectory + "PushDMPSFilesComplete.txt");
 
                     System.IO.File.WriteAllText(TempDirectory + "PushDMPSFilesComplete.txt", "DMPS Files pushed complete on " + DateTime.Now.ToString());
-                    
+
                     if (StopProcessing) return;
                     GetCurrentSignals2();
                 }
-                else if (curStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2)
-                {                    
-                    int count = signalListAfterDeployment.Count(one => one.HasSignalValue);
-                    Log("New Signals complete - " + count + " out of " + signalListAfterDeployment.Count + " retrieved current values");
-
-                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
-
-                    if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
-                        System.IO.File.Delete(TempDirectory + "NewSignalsComplete.json");
-
-                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsComplete.json", signalListJson);
-
-                    if (StopProcessing) return;
-                    SetSignals();
-                }
-                else if (curStep == DeploymentStep.SetSignals)
+                else if (CurStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && TxnIDs[CurStep] == nTransactionID)
                 {
-                    SetNextSignal();
+                    if (signalListAfterDeployment[NextNewSignalIndex].HasSignalValue)
+                    {
+                        Log("Signal received");
+                        GetNextNewSignal();
+                    }
+                    else
+                    {
+                        Log("Signal not received...");
+                        NextNewSignalIndex--;
+                        GetNextNewSignal();
+                    }
                 }
-                else if (curStep == DeploymentStep.SaveAndReboot)
+                else if (CurStep == DeploymentStep.SetSignals && TxnIDs[CurStep] == nTransactionID)
+                {
+                    if (CheckSetSignal)
+                    {
+                        Log("Checking signal just set...");
+                        CheckSignalJustSet();
+                    }
+                    else
+                    {
+                        //here
+                        var command = signalsToSet[signalIndexToSet];
+                        if (command.IsConfirmed)
+                        {
+                            Log("Signal Confirmed...Setting next signal...");
+                            SetNextSignal();
+                        }
+                        else
+                        {
+                            Log("Signal Not Confirmed...retrying");
+                            CheckSignalJustSet();
+                        }
+                    }
+                }
+                else if (CurStep == DeploymentStep.SaveAndReboot && TxnIDs[CurStep] == nTransactionID)
                 {
                     Log("Signals saved and device reboot initiated");
 
@@ -291,14 +327,25 @@ namespace DMPSMassDeploymentTool
                     //trigger next step
                     GetDevicesFromDMPS();
                 }
-                else if (curStep == DeploymentStep.GetDMPSDevices)
+                else if (CurStep == DeploymentStep.GetDMPSDevices && TxnIDs[CurStep] == nTransactionID)
                 {
                     //parse outputs
                     DeviceResultsFromDMPS = pszOutputs.Split(new char[] { '\"', ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (StopProcessing) return;
-                    GetTSPIPAddresses();
+
+                    if (DeviceResultsFromDMPS.Length == 0)
+                    {
+                        //wait ten seconds and redo
+                        Log("Waiting 10 seconds because no dmps devices returned...");
+                        System.Threading.Thread.Sleep(10000);
+                        GetDevicesFromDMPS();
+                    }
+                    else
+                    {
+                        if (StopProcessing) return;
+                        GetTSPIPAddresses();
+                    }
                 }
-                else if (curStep == DeploymentStep.GetUITouchPanelAddresses)
+                else if (CurStep == DeploymentStep.GetUITouchPanelAddresses && TxnIDs[CurStep] == nTransactionID)
                 {
                     //parse output
                     string[] x = pszOutputs.Split(new char[] { '\"', ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -309,16 +356,20 @@ namespace DMPSMassDeploymentTool
                     }
                     GetNextTSPIPAddress();
                 }
+                else if (CurStep == DeploymentStep.WaitForSystemToLoad)
+                {
+                    WaitForSystemToLoad();
+                }
             }
         }
 
-        private void VptSessionClass_OnEvent(int nTransactionID, 
-            [System.Runtime.InteropServices.ComAliasName("VPTCOMSERVERLib.EVptEventType")] VPTCOMSERVERLib.EVptEventType nEventType, 
+        private void VptSessionClass_OnEvent(int nTransactionID,
+            [System.Runtime.InteropServices.ComAliasName("VPTCOMSERVERLib.EVptEventType")] VPTCOMSERVERLib.EVptEventType nEventType,
             int lParam1, int lParam2, string pszwParam)
         {
             Log("\tAPI On Event - nTransactionID:[" + nTransactionID + "], nEventType:[" + nEventType + "], lParam1:[" + lParam1 + "], lParam2:[" + lParam2 + "], pszwParam:[" + pszwParam + "]");
 
-            if (curStep == DeploymentStep.GetCurrentSignals && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
+            if (CurStep == DeploymentStep.GetCurrentSignals && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState && TxnIDs[CurStep] == nTransactionID)
             {
                 var signal = signalList.Find(one => one.SignalIndex == lParam1);
                 if (signal != null)
@@ -328,7 +379,7 @@ namespace DMPSMassDeploymentTool
                     signal.SignalValue = pszwParam;
                 }
             }
-            else if (curStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
+            else if (CurStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState && TxnIDs[CurStep] == nTransactionID)
             {
                 var signal = signalListAfterDeployment.Find(one => one.SignalIndex == lParam1);
                 if (signal != null)
@@ -338,7 +389,7 @@ namespace DMPSMassDeploymentTool
                     signal.SignalValue = pszwParam;
                 }
             }
-            else if (curStep == DeploymentStep.WaitForSystemToLoad && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)
+            else if (CurStep == DeploymentStep.WaitForSystemToLoad && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)// && TxnIDs[CurStep] == nTransactionID)
             {
                 if (pszwParam == "0" && lParam1 == startupBusySignal.SignalIndex)
                 {
@@ -348,18 +399,58 @@ namespace DMPSMassDeploymentTool
                     return;
                 }
 
-                System.Threading.Thread.Sleep(5000);
+                Log("Startup busy is still on");                
                 WaitForSystemToLoad();
             }
+            else if (CurStep == DeploymentStep.SetSignals && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState && TxnIDs[CurStep] == nTransactionID)
+            {
+                //check to make sure it came back appropriately
+                var command = signalsToSet[signalIndexToSet];
 
-            Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
+                if (command.Signal.SignalIndex == lParam1)
+                {
+                    Log("Expected signal returned value of [" + pszwParam + "], expected [" + command.ExpectedValue + "]");
+
+                    if (pszwParam.Equals(command.ExpectedValue))
+                    {
+                        command.IsConfirmed = true;
+                        Log("Signal confirmed set.");
+                    }
+                    else
+                    {
+                        //retry
+                        Log("Signal not set correctly - resetting to set again.");
+                        if (!retryCount.ContainsKey(command.Signal.SignalIndex))
+                            retryCount.Add(command.Signal.SignalIndex, 0);
+
+                        retryCount[command.Signal.SignalIndex]++;
+
+                        if (retryCount[command.Signal.SignalIndex] < 10)
+                            signalIndexToSet--;
+                        else
+                        {
+                            Log("Retry count exceeded 10...continuing on...");
+                            command.IsConfirmed = true;
+                        }
+                    }
+                }
+                else
+                {
+                    Log("Unexpected signal [" + lParam1 + "] returned value of [" + pszwParam + "], " +
+                        "expected signal,value [" + command.Signal.SignalIndex + ", " + command.ExpectedValue + "]");
+                }
+            }
+
+            //Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
         }
+
+        Dictionary<uint, int> retryCount = new Dictionary<uint, int>();
 
         private void VptSessionClass_OnDebugString(int nTransactionID, int nCategory, string pszwData)
         {
             Log("\tAPI On Debug String - nTransactionID:[" + nTransactionID + "], nCategory:[" + nCategory + "], data:[" + pszwData + "]");
         }
-                
+
         public void FigureOutNextStepAfterConnect()
         {
             if (StopProcessing) return;
@@ -371,7 +462,7 @@ namespace DMPSMassDeploymentTool
                         " appears to have finished a deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                 {
-                    curStep = DeploymentStep.RetrieveZIG;
+                    CurStep = DeploymentStep.RetrieveZIG;
                     System.IO.Directory.Delete(TempDirectory, true);
                     var x = TempDirectory; //this will force it to recreate because I put it in the get { }
                 }
@@ -388,7 +479,7 @@ namespace DMPSMassDeploymentTool
                 {
                     LoadOldSignalsCompleteFromFile();
                     LoadNewSignalsCompleteFromFile();
-                    curStep = DeploymentStep.GetDMPSDevices;
+                    CurStep = DeploymentStep.GetDMPSDevices;
                 }
                 else
                 {
@@ -396,7 +487,7 @@ namespace DMPSMassDeploymentTool
                         " was mid-deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                     {
-                        curStep = DeploymentStep.RetrieveZIG;
+                        CurStep = DeploymentStep.RetrieveZIG;
                     }
                     else
                     {
@@ -406,13 +497,13 @@ namespace DMPSMassDeploymentTool
             }
             else if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
             {
-                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress + 
-                        " appears to have stopped in the middle of a deployment.  Resume deployment - set signals?", "", 
+                if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                        " appears to have stopped in the middle of a deployment.  Resume deployment - set signals?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                 {
                     LoadOldSignalsCompleteFromFile();
                     LoadNewSignalsCompleteFromFile();
-                    curStep = DeploymentStep.SetSignals;
+                    CurStep = DeploymentStep.SetSignals;
                 }
                 else
                 {
@@ -420,7 +511,7 @@ namespace DMPSMassDeploymentTool
                         " was mid-deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                     {
-                        curStep = DeploymentStep.RetrieveZIG;
+                        CurStep = DeploymentStep.RetrieveZIG;
                     }
                     else
                     {
@@ -436,15 +527,15 @@ namespace DMPSMassDeploymentTool
                 {
                     LoadOldSignalsCompleteFromFile();
                     LoadNewSignalsFromFile();
-                    curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
+                    CurStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
                 }
                 else
                 {
-                    if(MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
+                    if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " was mid-deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                     {
-                        curStep = DeploymentStep.RetrieveZIG;
+                        CurStep = DeploymentStep.RetrieveZIG;
                     }
                     else
                     {
@@ -460,7 +551,7 @@ namespace DMPSMassDeploymentTool
                 {
                     LoadOldSignalsCompleteFromFile();
                     LoadNewSignalsFromFile();
-                    curStep = DeploymentStep.PushNewSPZFile;
+                    CurStep = DeploymentStep.PushNewSPZFile;
                 }
                 else
                 {
@@ -468,7 +559,7 @@ namespace DMPSMassDeploymentTool
                         " was mid-deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                     {
-                        curStep = DeploymentStep.RetrieveZIG;
+                        CurStep = DeploymentStep.RetrieveZIG;
                     }
                     else
                     {
@@ -484,7 +575,7 @@ namespace DMPSMassDeploymentTool
                 {
                     LoadOldSignalsFromFile();
                     LoadNewSignalsFromFile();
-                    curStep = DeploymentStep.GetCurrentSignals;
+                    CurStep = DeploymentStep.GetCurrentSignals;
                 }
                 else
                 {
@@ -492,7 +583,7 @@ namespace DMPSMassDeploymentTool
                         " was mid-deployment.  Do you want to start over?", "",
                         MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                     {
-                        curStep = DeploymentStep.RetrieveZIG;
+                        CurStep = DeploymentStep.RetrieveZIG;
                     }
                     else
                     {
@@ -501,7 +592,7 @@ namespace DMPSMassDeploymentTool
                 }
             }
 
-            var step = curStep;
+            var step = CurStep;
 
             if (step == DeployDMPS.DeploymentStep.Connect)
                 RetrieveZigFile(); //this one is the only one that is differnet - the rest are more like a "resume"
@@ -535,21 +626,39 @@ namespace DMPSMassDeploymentTool
             //connect
             int connect = vptSessionClass.OpenSession("auto " + DMPSIPAddress, DMPSIPAddress);
             string output = "";
-            vptSessionClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
+            vptSessionClass.SyncActivateStr(0, "ProductGetInfo", output, 1000, 1);
             string x = output;
+        }
+
+        public void Nudge()
+        {
+            if (vptSessionClass.IsSessionReady(1000) == 0)
+            {
+                Log("Session not ready...");
+            }
+            else
+            {
+                Log("Nudging...");
+                string output = "";
+                vptSessionClass.SyncActivateStr(0, "ProductGetInfo", output, 1000, 1);
+                string x = output;
+            }
         }
 
         public void RetrieveZigFile()
         {
-            curStep = DeploymentStep.RetrieveZIG;
+            CurStep = DeploymentStep.RetrieveZIG;
             Log("---------------------");
-            Log("Step 2 - Retrieving ZIG file");            
+            Log("Step 2 - Retrieving ZIG file");
 
             if (System.IO.File.Exists(TempDirectory + "TEC HD.zig"))
                 System.IO.File.Delete(TempDirectory + "TEC HD.zig");
 
             string outputs = "";
+            int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, @"FileXferGet ""\SIMPL\TEC HD.zig"" """ + TempDirectory + "TEC HD.zig\"", 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
 
             Log("\tTransaction ID:[" + curAPITransactionID + "]");
             Log("\tFileXferGet Output:[" + outputs + "]");
@@ -579,14 +688,14 @@ namespace DMPSMassDeploymentTool
 
         public void UnzipAndParseSigFile()
         {
-            curStep = DeploymentStep.UnzipAndParseSIG;
+            CurStep = DeploymentStep.UnzipAndParseSIG;
             Log("---------------");
             Log("Unzipping and parsing SIG file");
 
             if (System.IO.Directory.Exists(TempDirectory + @"TEC HD\"))
                 System.IO.Directory.Delete(TempDirectory + @"TEC HD\", true);
 
-            System.IO.Compression.ZipFile.ExtractToDirectory(TempDirectory + @"TEC HD.zig", TempDirectory +  @"TEC HD\");
+            System.IO.Compression.ZipFile.ExtractToDirectory(TempDirectory + @"TEC HD.zig", TempDirectory + @"TEC HD\");
 
             byte[] sigFile = System.IO.File.ReadAllBytes(TempDirectory + @"TEC HD\TEC HD.sig");
 
@@ -650,7 +759,7 @@ namespace DMPSMassDeploymentTool
 
             //save it
             var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
-            
+
             if (System.IO.File.Exists(TempDirectory + "OldSignals.json"))
                 System.IO.File.Delete(TempDirectory + "OldSignals.json");
 
@@ -691,25 +800,78 @@ namespace DMPSMassDeploymentTool
 
         public void GetCurrentSignals()
         {
-            curStep = DeploymentStep.GetCurrentSignals;
+            CurStep = DeploymentStep.GetCurrentSignals;
             Log("---------------");
             Log("Getting current signals from DMPS....");
             string output = "";
             vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus", 10000, ref curAPITransactionID, 0, 0);            
+
+            NextOldSignalIndex = -1;
+            GetNextOldSignal();            
+        }
+
+        int NextOldSignalIndex = -1;
+        public void GetNextOldSignal()
+        {
+            while (true)
+            {
+                NextOldSignalIndex++;
+
+                if (NextOldSignalIndex >= signalList.Count)
+                {
+                    //move on to next step
+                    int count = signalList.Count(one => one.HasSignalValue);
+
+                    var possibleCount = signalList.Count(one => !IgnoreSignalName(one.SignalName));
+
+                    Log("Current Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
+
+                    if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
+
+                    if (StopProcessing) return;
+
+                    SendSPZFile();
+
+                    return;
+                }
+
+                if (IgnoreSignalName(signalList[NextOldSignalIndex].SignalName))
+                {
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalList[NextOldSignalIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         public void SendSPZFile()
         {
-            curStep = DeploymentStep.PushNewSPZFile;
+            CurStep = DeploymentStep.PushNewSPZFile;
             Log("---------------");
             Log("Sending new SPZ file....");
+
+            int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, "ProgramSend \"" + NewSPZFileName + "\"", 10000, curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         public void SendNewZIGFile()
         {
-            curStep = DeploymentStep.PushNewZigFile;
+            CurStep = DeploymentStep.PushNewZigFile;
 
             Log("---------------");
             Log("Sending new ZIG file....");
@@ -723,9 +885,11 @@ namespace DMPSMassDeploymentTool
             using (var zip = ZipFile.Open(TempDirectory + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
                 zip.CreateEntryFromFile(sigFileName, System.IO.Path.GetFileName(sigFileName));
 
-            int transactionID = 0;
+            int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + TempDirectory + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
-                5000, ref transactionID, 0, 0);            
+                5000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         public void ParseNewSigFile()
@@ -802,29 +966,89 @@ namespace DMPSMassDeploymentTool
 
             System.IO.File.WriteAllText(TempDirectory + "NewSignals.json", signalListJson);
         }
-
+                
         public void GetCurrentSignals2()
         {
-            curStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
+            CurStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
             
-
             Log("---------------");
             Log("Getting current signals from DMPS (again)....");
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus", 10000, ref curAPITransactionID, 0, 0);
+
+            NextNewSignalIndex = -1;
+            GetNextNewSignal();                        
         }
 
-        List<Tuple<string, string>> signalsToSet = new List<Tuple<string, string>>();
-        int signalIndexToSet = 0;
+        int NextNewSignalIndex = -1;
+
+        public bool IgnoreSignalName(string SignalName)
+        {
+            return SignalName.StartsWith("::") ||
+                    SignalName.StartsWith("//") ||
+                    SignalName.StartsWith("DMPS-300-C._");
+        }
+
+        public void GetNextNewSignal()
+        {
+            while (true)
+            {
+                NextNewSignalIndex++;
+
+                if (NextNewSignalIndex >= signalListAfterDeployment.Count)
+                {
+                    //move on to next step
+                    int count = signalListAfterDeployment.Count(one => one.HasSignalValue);
+                    int possibleCount = signalListAfterDeployment.Count(one => !IgnoreSignalName(one.SignalName));
+                    Log("New Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
+
+                    if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "NewSignalsComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsComplete.json", signalListJson);
+
+                    if (StopProcessing) return;
+                    SetSignals();
+
+                    return;
+                }
+
+                if (IgnoreSignalName(signalListAfterDeployment[NextNewSignalIndex].SignalName))
+                {
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalListAfterDeployment[NextNewSignalIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
+        }
+
+        public class SignalToSet
+        {
+            public string CommandToSet { get; set; }
+            public string CommandToGet { get; set; }
+            public CrestronSignal Signal { get; set; }            
+            public bool IsConfirmed { get; set; }
+            public string ExpectedValue { get; set; }
+        }
+        List<SignalToSet> signalsToSet = new List<SignalToSet>();
+        int signalIndexToSet = -1;
 
         public void SetSignals()
         {
             //see which ones are different from what they used to be and set them           
-            signalsToSet = new List<Tuple<string, string>>();
-            signalIndexToSet = 0;
+            signalsToSet = new List<SignalToSet>();
+            signalIndexToSet = -1;
             foreach (var oldSignal in signalList)
             {
-                if (oldSignal.SignalName.StartsWith("::") ||
-                    oldSignal.SignalName.StartsWith("//"))
+                if (IgnoreSignalName(oldSignal.SignalName))
                 {
                     continue;
                 }
@@ -840,29 +1064,70 @@ namespace DMPSMassDeploymentTool
                     {
                         //reset this one
                         if (newSignal.SignalType == 0)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", " + oldSignal.SignalValue, newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetDigital " + newSignal.SignalIndex + ", " + oldSignal.SignalValue,
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = oldSignal.SignalValue
+                            });
                         else if (newSignal.SignalType == 1)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", " + oldSignal.SignalValue, newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetAnalog " + newSignal.SignalIndex + ", " + oldSignal.SignalValue,
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = oldSignal.SignalValue
+                            });
                         else if (newSignal.SignalType == 2)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"" + oldSignal.SignalValue + "\"", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetSerial " + newSignal.SignalIndex + ", \"" + oldSignal.SignalValue + "\"",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = oldSignal.SignalValue
+                            });                        
                     }                    
                     else if (!oldSignal.HasSignalValue && newSignal.HasSignalValue)
                     {
                         //reset this one to default
                         if (newSignal.SignalType == 0)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetDigital " + newSignal.SignalIndex + ", 0",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = "0"
+                            });
                         else if (newSignal.SignalType == 1)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = "0"
+                            });
                         else if (newSignal.SignalType == 2)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = ""
+                            });
                     }
                 }
             }
 
             foreach (var newSignal in signalListAfterDeployment)
             {
-                if (newSignal.SignalName.StartsWith("::") ||
-                    newSignal.SignalName.StartsWith("//"))
+                if (IgnoreSignalName(newSignal.SignalName))
                 {
                     continue;
                 }
@@ -876,25 +1141,99 @@ namespace DMPSMassDeploymentTool
                     {
                         //reset it
                         if (newSignal.SignalType == 0)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetDigital " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetDigital " + newSignal.SignalIndex + ", 0",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = "0"
+                            });
                         else if (newSignal.SignalType == 1)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetAnalog " + newSignal.SignalIndex + ", 0",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = "0"
+                            });
                         else if (newSignal.SignalType == 2)
-                            signalsToSet.Add(new Tuple<string, string>("SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"", newSignal.SignalName));
+                            signalsToSet.Add(new SignalToSet()
+                            {
+                                CommandToSet = "SignalDbgSetSerial " + newSignal.SignalIndex + ", \"\"",
+                                Signal = newSignal,
+                                IsConfirmed = false,
+                                CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                                ExpectedValue = ""
+                            });
                     }
                 }
-            }
 
-            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt", signalsToSet.Select(one => one.Item1 + "|" + one.Item2));
+                if (newSignal.SignalName == "ReportToHost")
+                {
+                    var x = signalsToSet.Find(one => one.Signal.SignalIndex == newSignal.SignalIndex);
+                    if (x == null)
+                    {
+                        x = new SignalToSet()
+                        {
+                            CommandToSet = "SignalDbgSetSerial " + newSignal.SignalIndex + ", \"sandbag.byu.edu\"",
+                            Signal = newSignal,
+                            IsConfirmed = false,
+                            CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                            ExpectedValue = "sandbag.byu.edu"
+                        };
+                        signalsToSet.Add(x);
+                    }
+
+                    if (x.ExpectedValue != "sandbag.byu.edu")
+                    {
+                        x.CommandToSet = "SignalDbgSetSerial " + newSignal.SignalIndex + ", \"sandbag.byu.edu\"";
+                        x.ExpectedValue = "sandbag.byu.edu";
+                    }
+                }
+
+                if (newSignal.SignalName == "ReportToHostPort")
+                {
+                    var x = signalsToSet.Find(one => one.Signal.SignalIndex == newSignal.SignalIndex);
+                    if (x == null)
+                    {
+                        x = new SignalToSet()
+                        {
+                            CommandToSet = "SignalDbgSetAnalog " + newSignal.SignalIndex + ", 10010",
+                            Signal = newSignal,
+                            IsConfirmed = false,
+                            CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
+                            ExpectedValue = "10010"
+                        };
+                        signalsToSet.Add(x);
+                    }
+
+                    if (x.ExpectedValue != "sandbag.byu.edu")
+                    {
+                        x.CommandToSet = "SignalDbgSetAnalog " + newSignal.SignalIndex + ", 10010";
+                        x.ExpectedValue = "10010";
+                    }
+                }
+            }            
+
+            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt", 
+                signalsToSet.Select(one => one.CommandToSet + "|" + one.Signal.SignalName + " (index " + one.Signal.SignalIndex + ")"));
+
+            string output = "";
+            Log("Entering Debug mode...");
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
 
             SetNextSignal();
         }
 
+        bool CheckSetSignal = true;
+
         public void SetNextSignal()
         {
-            curStep = DeploymentStep.SetSignals;
+            CurStep = DeploymentStep.SetSignals;
 
-            if (signalIndexToSet >= signalsToSet.Count)
+            if (signalIndexToSet >= signalsToSet.Count - 1)
             {
                 //next step
                 if (StopProcessing) return;
@@ -902,18 +1241,34 @@ namespace DMPSMassDeploymentTool
             }
             else
             {
-                var command = signalsToSet[signalIndexToSet];
-
                 signalIndexToSet++;
+                var command = signalsToSet[signalIndexToSet];                
 
-                Log("Setting " + command.Item2 + " [" + command.Item1 + "]");
-                vptSessionClass.AsyncActivateStr(0, command.Item1, 10000, ref curAPITransactionID, 0, 0);
+                //set it up so we know to check it
+                CheckSetSignal = true;
+
+                Log("Setting " + command.Signal.SignalName + " [" + command.CommandToSet + "]");
+                int curAPITransactionID = 0;
+                vptSessionClass.AsyncActivateStr(0, command.CommandToSet, 10000, ref curAPITransactionID, 0, 0);
+                TxnIDs[CurStep] = curAPITransactionID;
             }
+        }
+
+        public void CheckSignalJustSet()
+        {
+            var command = signalsToSet[signalIndexToSet];            
+
+            CheckSetSignal = false;
+
+            Log("Checking " + command.Signal.SignalName + " [" + command.CommandToGet + "]");
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, command.CommandToGet, 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         public void SaveAndReboot()
         {
-            curStep = DeploymentStep.SaveAndReboot;
+            CurStep = DeploymentStep.SaveAndReboot;
             Log("---------------");
             Log("Saving and rebooting....");
 
@@ -922,7 +1277,9 @@ namespace DMPSMassDeploymentTool
             string output = "";
             vptSessionClass.SyncActivateStr(0, "SignalDbgPulseDigital " + signal.SignalIndex + ", 50", ref output, 10000, 0);
 
+            int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, "ProgramRestart", 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         string[] DeviceResultsFromDMPS;
@@ -930,15 +1287,17 @@ namespace DMPSMassDeploymentTool
 
         public void GetDevicesFromDMPS()
         {
-            curStep = DeploymentStep.GetDMPSDevices;
+            CurStep = DeploymentStep.GetDMPSDevices;
             Log("---------------");
-            Log("Getting current devices from DMPS....");            
+            Log("Getting current devices from DMPS....");
+            int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, "SubNetworkReportDevices 2", 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         public void GetTSPIPAddresses()
         {
-            curStep = DeploymentStep.GetUITouchPanelAddresses;
+            CurStep = DeploymentStep.GetUITouchPanelAddresses;
             Log("---------------");
             Log("Getting device information....");
             deviceToQueryIndex = 1;
@@ -963,7 +1322,9 @@ namespace DMPSMassDeploymentTool
 
                 int value = Convert.ToInt32(DeviceResultsFromDMPS[deviceToQueryIndex], 16);
 
+                int curAPITransactionID = 0;
                 vptSessionClass.AsyncActivateStr(0, "SubNetworkReportDevice 2, " + value, 10000, ref curAPITransactionID, 0, 0);
+                TxnIDs[CurStep] = curAPITransactionID;
 
                 deviceToQueryIndex = deviceToQueryIndex + 2;
             }
@@ -973,122 +1334,243 @@ namespace DMPSMassDeploymentTool
 
         public void WaitForSystemToLoad()
         {
-            curStep = DeploymentStep.WaitForSystemToLoad;            
-            Log("---Waiting for system to load---");
+            CurStep = DeploymentStep.WaitForSystemToLoad;            
+            Log("---Waiting for system to load - 30 seconds---");
             System.Threading.Thread.Sleep(30000);
-            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");            
+            Log("---Finding System_busy signal---");
+            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
+            int curAPITransactionID = 0;
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
             vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
         }
 
         List<string> vtzIPAddresses = new List<string>();
         int vtzIndex = 0;
         public void SendNewVTZFiles()
         {
-            curStep = DeploymentStep.PushVtzFiles;
+            CurStep = DeploymentStep.PushVtzFiles;
             Log("---------------");
             Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");
 
-            //return;
-
-            vtzIndex = 0;
-
-            vptSessionClass.CloseSession();
-
-            vtzClass.OnSessionReady += VtzClass_OnSessionReady;
-            vtzClass.OnAsyncActivateStart += VtzClass_OnAsyncActivateStart;
-            vtzClass.OnFileXferBatchStart += VtzClass_OnFileXferBatchStart;
-            vtzClass.OnFileXferFileStart += VtzClass_OnFileXferFileStart;
-            vtzClass.OnFileXferFileProgress += VtzClass_OnFileXferFileProgress;
-            vtzClass.OnFileXferFileFinish += VtzClass_OnFileXferFileFinish;
-            vtzClass.OnFileXferBatchFinish += VtzClass_OnFileXferBatchFinish;
-            vtzClass.OnActivateStrComplete += VtzClass_OnActivateStrComplete;
-
-            SendNextVTZFile();
-        }
-
-        private void VtzClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
-        {
-            Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
-               "bSuccess:[" + bSuccess + "]");
-
-            SendNextVTZFile();
-        }
-
-        private void VtzClass_OnFileXferBatchFinish(int nTransactionID, byte bSuccess)
-        {
-            Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
-               "bSuccess:[" + bSuccess + "]");                        
-        }
-
-        private void VtzClass_OnFileXferFileFinish(int nTransactionID, byte bSuccess)
-        {
-            Log("\tVTZ On File Xfer File Finish - nTransactionID:[" + nTransactionID + "], " +
-               "bSuccess:[" + bSuccess + "]");
-        }
-
-        private void VtzClass_OnFileXferFileProgress(int nTransactionID, int nFileBytesTransferred, int nTotalBytesTransferred, int nBytesPerSecond, int nEstTotalTimeRemaining)
-        {
-            Log("\tVTZ On File Xfer File Progress - nTransactionID:[" + nTransactionID + "], " +
-                 "nFileBytesTransferred:[" + nFileBytesTransferred + "], " +
-                 "nTotalBytesTransferred:[" + nTotalBytesTransferred + "], nBytesPerSecond:[" + nBytesPerSecond + "], " +
-                 "nEstTotalTimeRemaining:[" + nEstTotalTimeRemaining + "]");
-        }
-
-        private void VtzClass_OnFileXferBatchStart(int nTransactionID, string pszwDescription, int nTotalFiles, int nTotalSize)
-        {
-            Log("\tVTZ On File Xfer Batch Start - nTransactionID:[" + nTransactionID + "], " +
-               "pszwDescription:[" + pszwDescription + "], " +
-               "nTotalFiles:[" + nTotalFiles + "], nTotalSize:[" + nTotalSize + "]");
-        }
-
-        private void VtzClass_OnFileXferFileStart(int nTransactionID, string pszwLocalFilename, string pszwRemoteFilename, int nSize, byte bSending, string pszwProtocolName)
-        {
-            Log("\tVTZ On File Xfer File Start - nTransactionID:[" + nTransactionID + "], " +
-               "pszwLocalFilename:[" + pszwLocalFilename + "], " +
-               "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " +
-               "bSending:[" + bSending + "], pszwProtocolName :[" + pszwProtocolName + "]");
-        }
-
-        private void VtzClass_OnAsyncActivateStart(int nTransactionID, int nAbilityCode, int nUserPassBack)
-        {
-            Log("VTZ Session starting nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], nUserPassBack:[" + nUserPassBack + "]");
-        }
-
-        private void VtzClass_OnSessionReady()
-        {
-            vtzClass.AsyncActivateStr(0, "DisplayListSend \"" + NewVTZFileName + "\"", 10000, ref curAPITransactionID, 0, 0);
-        }
-
-        VPTCOMSERVERLib.VptSessionClass vtzClass = new VPTCOMSERVERLib.VptSessionClass();        
-
-        public void SendNextVTZFile()
-        {
-            if (vtzIndex == vtzIPAddresses.Count)
+            foreach (string vtzAddress in vtzIPAddresses)
             {
-                //all done
-                if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
-                    System.IO.File.Delete(TempDirectory + "DeploymentComplete.txt");
-
-                System.IO.File.WriteAllText(TempDirectory + "DeploymentComplete.txt", "Deployment Complete on " + DateTime.Now.ToString());
-
-                if (OnDMPSDeployedSuccessfully != null)
+                //ftp and push the vtz file
+                if (!SendVTZOverFTP(vtzAddress))
                 {
-                    OnDMPSDeployedSuccessfully("DMPS " + DMPSHostName + " / " + DMPSIPAddress + " Deployment Complete!");
+                    Log("ERROR!!!!!!!!!  Didn't ftp file");
+                    return;
                 }
 
-                logForm.CloseForm();
-
+                //telnet and tell it to ProjectLoad
+                //wait for it to get done
+                TelnetVTZ vtzSender = new TelnetVTZ();
+                vtzSender.OnLog += VtzSender_OnLog;
+                if (!vtzSender.SendVTZFile(vtzAddress))
+                {
+                    Log("ERROR!!!!!!!!!  Didn't telnet command");
+                    return;
+                }
             }
-            else
+
+            //all done
+            if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
+                System.IO.File.Delete(TempDirectory + "DeploymentComplete.txt");
+
+            System.IO.File.WriteAllText(TempDirectory + "DeploymentComplete.txt", "Deployment Complete on " + DateTime.Now.ToString());
+
+            if (OnDMPSDeployedSuccessfully != null)
             {
-                string ip = vtzIPAddresses[vtzIndex];
-                vtzIndex++;
-                vtzClass.CloseSession();
-                vtzClass.OpenSession("auto " + ip, ip);
-                Log("Connection to session on TouchPanel " + ip);
-                string output = "";
-                vtzClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
+                OnDMPSDeployedSuccessfully("DMPS " + DMPSHostName + " / " + DMPSIPAddress + " Deployment Complete!");
+            }
+
+            logForm.CloseForm();
+        }
+
+        private void VtzSender_OnLog(object sender, string e)
+        {
+            Log(e);
+        }
+
+        public byte[] GetFileData(string filename)
+        {
+            using (var sr = new StreamReader(filename))
+            {
+                return ASCIIEncoding.ASCII.GetBytes(sr.ReadToEnd());
             }
         }
+
+        public bool SendVTZOverFTP(string ipAddress)
+        {
+            try
+            {
+                Log("Sending file via ftp to [" + ipAddress + "]...");
+
+                string url = "ftp://" + ipAddress + "/display/" + Path.GetFileName(NewVTZFileName);
+                var ftpWebRequest = WebRequest.Create(url) as FtpWebRequest;
+                ftpWebRequest.Method = WebRequestMethods.Ftp.UploadFile;
+                //ftpWebRequest.Credentials = new NetworkCredential("something", "something");
+                byte[] fileData = System.IO.File.ReadAllBytes(NewVTZFileName);
+                System.IO.File.WriteAllBytes(@"C:\temp\test.zip", fileData);
+                //byte[] fileData = System.IO.File.ReadAllBytes(@"c:\temp\test.json");
+                //byte[] fileData = GetFileData(NewVTZFileName);            
+                using (var requestStream = ftpWebRequest.GetRequestStream())
+                {
+                    requestStream.Write(fileData, 0, fileData.Length);
+                }
+                var response = ftpWebRequest.GetResponse() as FtpWebResponse;
+
+                Log("Status Description: " + response.StatusDescription);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log("Exception while uploading - " + ex.Message);
+                return false;
+            }
+
+            
+
+            // Get the object used to communicate with the server.
+            FtpWebRequest request = (FtpWebRequest)WebRequest.Create("ftp://" + ipAddress  + "/Display/" + Path.GetFileName(NewVTZFileName));
+            request.Method = WebRequestMethods.Ftp.UploadFile;
+
+            // Copy the contents of the file to the request stream.
+            var ftpStream = request.GetRequestStream();
+            //FileStream file = File.OpenRead(NewVTZFileName);
+            byte[] test = System.IO.File.ReadAllBytes(NewVTZFileName);
+
+            //int length = 65536;
+            //byte[] buffer = new byte[length];
+            //int bytesRead = 0;
+            //int total = 0;
+            //do
+            //{
+            //    total += length;
+            //    Log("Writing " + total + " to ftp stream");
+            //    bytesRead = file.Read(buffer, 0, length);
+            //    ftpStream.Write(buffer, 0, bytesRead);
+            //}
+            //while (bytesRead != 0);
+
+            //file.Close();
+            ftpStream.Write(test, 0, test.Length);
+            ftpStream.Close();
+
+            return true;            
+        }
+
+
+        //public void SendNewVTZFiles()
+        //{
+        //    CurStep = DeploymentStep.PushVtzFiles;
+        //    Log("---------------");
+        //    Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");
+
+        //    //return;
+
+        //    vtzIndex = 0;
+
+        //    vptSessionClass.CloseSession();
+
+        //    vtzClass.OnSessionReady += VtzClass_OnSessionReady;
+        //    vtzClass.OnAsyncActivateStart += VtzClass_OnAsyncActivateStart;
+        //    vtzClass.OnFileXferBatchStart += VtzClass_OnFileXferBatchStart;
+        //    vtzClass.OnFileXferFileStart += VtzClass_OnFileXferFileStart;
+        //    vtzClass.OnFileXferFileProgress += VtzClass_OnFileXferFileProgress;
+        //    vtzClass.OnFileXferFileFinish += VtzClass_OnFileXferFileFinish;
+        //    vtzClass.OnFileXferBatchFinish += VtzClass_OnFileXferBatchFinish;
+        //    vtzClass.OnActivateStrComplete += VtzClass_OnActivateStrComplete;
+
+        //    SendNextVTZFile();
+        //}
+
+        //private void VtzClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
+        //{
+        //    Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
+        //       "bSuccess:[" + bSuccess + "]");
+
+        //    SendNextVTZFile();
+        //}
+
+        //private void VtzClass_OnFileXferBatchFinish(int nTransactionID, byte bSuccess)
+        //{
+        //    Log("\tVTZ On File Xfer Batch Finish - nTransactionID:[" + nTransactionID + "], " +
+        //       "bSuccess:[" + bSuccess + "]");                        
+        //}
+
+        //private void VtzClass_OnFileXferFileFinish(int nTransactionID, byte bSuccess)
+        //{
+        //    Log("\tVTZ On File Xfer File Finish - nTransactionID:[" + nTransactionID + "], " +
+        //       "bSuccess:[" + bSuccess + "]");
+        //}
+
+        //private void VtzClass_OnFileXferFileProgress(int nTransactionID, int nFileBytesTransferred, int nTotalBytesTransferred, int nBytesPerSecond, int nEstTotalTimeRemaining)
+        //{
+        //    Log("\tVTZ On File Xfer File Progress - nTransactionID:[" + nTransactionID + "], " +
+        //         "nFileBytesTransferred:[" + nFileBytesTransferred + "], " +
+        //         "nTotalBytesTransferred:[" + nTotalBytesTransferred + "], nBytesPerSecond:[" + nBytesPerSecond + "], " +
+        //         "nEstTotalTimeRemaining:[" + nEstTotalTimeRemaining + "]");
+        //}
+
+        //private void VtzClass_OnFileXferBatchStart(int nTransactionID, string pszwDescription, int nTotalFiles, int nTotalSize)
+        //{
+        //    Log("\tVTZ On File Xfer Batch Start - nTransactionID:[" + nTransactionID + "], " +
+        //       "pszwDescription:[" + pszwDescription + "], " +
+        //       "nTotalFiles:[" + nTotalFiles + "], nTotalSize:[" + nTotalSize + "]");
+        //}
+
+        //private void VtzClass_OnFileXferFileStart(int nTransactionID, string pszwLocalFilename, string pszwRemoteFilename, int nSize, byte bSending, string pszwProtocolName)
+        //{
+        //    Log("\tVTZ On File Xfer File Start - nTransactionID:[" + nTransactionID + "], " +
+        //       "pszwLocalFilename:[" + pszwLocalFilename + "], " +
+        //       "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " +
+        //       "bSending:[" + bSending + "], pszwProtocolName :[" + pszwProtocolName + "]");
+        //}
+
+        //private void VtzClass_OnAsyncActivateStart(int nTransactionID, int nAbilityCode, int nUserPassBack)
+        //{
+        //    Log("VTZ Session starting nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], nUserPassBack:[" + nUserPassBack + "]");
+        //}
+
+        //private void VtzClass_OnSessionReady()
+        //{
+        //    int curAPITransactionID = 0;
+        //    vtzClass.AsyncActivateStr(0, "DisplayListSend \"" + NewVTZFileName + "\"", 10000, ref curAPITransactionID, 0, 0);
+        //}
+
+        //VPTCOMSERVERLib.VptSessionClass vtzClass = new VPTCOMSERVERLib.VptSessionClass();        
+
+        //public void SendNextVTZFile()
+        //{
+        //    if (vtzIndex == vtzIPAddresses.Count)
+        //    {
+        //        //all done
+        //        if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
+        //            System.IO.File.Delete(TempDirectory + "DeploymentComplete.txt");
+
+        //        System.IO.File.WriteAllText(TempDirectory + "DeploymentComplete.txt", "Deployment Complete on " + DateTime.Now.ToString());
+
+        //        if (OnDMPSDeployedSuccessfully != null)
+        //        {
+        //            OnDMPSDeployedSuccessfully("DMPS " + DMPSHostName + " / " + DMPSIPAddress + " Deployment Complete!");
+        //        }
+
+        //        logForm.CloseForm();
+
+        //    }
+        //    else
+        //    {
+        //        string ip = vtzIPAddresses[vtzIndex];
+        //        vtzIndex++;
+        //        vtzClass.CloseSession();
+        //        vtzClass.OpenSession("auto " + ip, ip);
+        //        Log("Connection to session on TouchPanel " + ip);
+        //        string output = "";
+        //        vtzClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
+        //    }
+        //}
     }
 }

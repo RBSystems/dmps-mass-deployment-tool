@@ -47,6 +47,7 @@
             this.stopProcessingButton = new System.Windows.Forms.Button();
             this.step85SaveAndRebootButton = new System.Windows.Forms.Button();
             this.step65WaitForSystemToLoadButton = new System.Windows.Forms.Button();
+            this.nudgeButton = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -79,7 +80,7 @@
             this.groupBox1.Controls.Add(this.logListBox);
             this.groupBox1.Location = new System.Drawing.Point(12, 56);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(908, 731);
+            this.groupBox1.Size = new System.Drawing.Size(908, 759);
             this.groupBox1.TabIndex = 2;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Log";
@@ -91,7 +92,7 @@
             this.logListBox.ItemHeight = 16;
             this.logListBox.Location = new System.Drawing.Point(3, 18);
             this.logListBox.Name = "logListBox";
-            this.logListBox.Size = new System.Drawing.Size(902, 710);
+            this.logListBox.Size = new System.Drawing.Size(902, 738);
             this.logListBox.TabIndex = 0;
             // 
             // step1ButtonConnect
@@ -152,7 +153,7 @@
             // step6ButtonPushZig
             // 
             this.step6ButtonPushZig.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step6ButtonPushZig.Location = new System.Drawing.Point(923, 325);
+            this.step6ButtonPushZig.Location = new System.Drawing.Point(923, 362);
             this.step6ButtonPushZig.Name = "step6ButtonPushZig";
             this.step6ButtonPushZig.Size = new System.Drawing.Size(230, 31);
             this.step6ButtonPushZig.TabIndex = 8;
@@ -227,7 +228,7 @@
             // stopProcessingButton
             // 
             this.stopProcessingButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.stopProcessingButton.Location = new System.Drawing.Point(923, 753);
+            this.stopProcessingButton.Location = new System.Drawing.Point(923, 781);
             this.stopProcessingButton.Name = "stopProcessingButton";
             this.stopProcessingButton.Size = new System.Drawing.Size(230, 31);
             this.stopProcessingButton.TabIndex = 15;
@@ -249,19 +250,31 @@
             // step65WaitForSystemToLoadButton
             // 
             this.step65WaitForSystemToLoadButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step65WaitForSystemToLoadButton.Location = new System.Drawing.Point(923, 388);
+            this.step65WaitForSystemToLoadButton.Location = new System.Drawing.Point(923, 325);
             this.step65WaitForSystemToLoadButton.Name = "step65WaitForSystemToLoadButton";
             this.step65WaitForSystemToLoadButton.Size = new System.Drawing.Size(230, 31);
             this.step65WaitForSystemToLoadButton.TabIndex = 17;
-            this.step65WaitForSystemToLoadButton.Text = "Step 6.5 - Wait for system to load";
+            this.step65WaitForSystemToLoadButton.Text = "Step 5.5 - Wait for system to load";
             this.step65WaitForSystemToLoadButton.UseVisualStyleBackColor = true;
             this.step65WaitForSystemToLoadButton.Click += new System.EventHandler(this.step65WaitForSystemToLoadButton_Click);
+            // 
+            // nudgeButton
+            // 
+            this.nudgeButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.nudgeButton.Location = new System.Drawing.Point(923, 744);
+            this.nudgeButton.Name = "nudgeButton";
+            this.nudgeButton.Size = new System.Drawing.Size(230, 31);
+            this.nudgeButton.TabIndex = 18;
+            this.nudgeButton.Text = "Nudge";
+            this.nudgeButton.UseVisualStyleBackColor = true;
+            this.nudgeButton.Click += new System.EventHandler(this.nudgeButton_Click);
             // 
             // RunningForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1162, 799);
+            this.ClientSize = new System.Drawing.Size(1162, 827);
+            this.Controls.Add(this.nudgeButton);
             this.Controls.Add(this.step65WaitForSystemToLoadButton);
             this.Controls.Add(this.step85SaveAndRebootButton);
             this.Controls.Add(this.stopProcessingButton);
@@ -310,5 +323,6 @@
         public System.Windows.Forms.Label targetDMPS;
         private System.Windows.Forms.Button step85SaveAndRebootButton;
         private System.Windows.Forms.Button step65WaitForSystemToLoadButton;
+        private System.Windows.Forms.Button nudgeButton;
     }
 }
