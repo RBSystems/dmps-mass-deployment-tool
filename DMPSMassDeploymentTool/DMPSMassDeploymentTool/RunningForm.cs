@@ -36,6 +36,8 @@ namespace DMPSMassDeploymentTool
             step7ButtonGetSignals.Font = new Font(step7ButtonGetSignals.Font, FontStyle.Regular);
             step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Regular);
             step85SaveAndRebootButton.Font = new Font(step85SaveAndRebootButton.Font, FontStyle.Regular);
+            step86WaitForSystemToLoad.Font = new Font(step86WaitForSystemToLoad.Font, FontStyle.Regular);
+            step87GetSignalsAfterSet.Font = new Font(step87GetSignalsAfterSet.Font, FontStyle.Regular);
             step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Regular);
             step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Regular);
             step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Regular);
@@ -60,6 +62,10 @@ namespace DMPSMassDeploymentTool
                 step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.SaveAndReboot)
                 step85SaveAndRebootButton.Font = new Font(step85SaveAndRebootButton.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad2)
+                step86WaitForSystemToLoad.Font = new Font(step86WaitForSystemToLoad.Font, FontStyle.Bold);
+            else if (step == DeployDMPS.DeploymentStep.GetSignalsAfterSet)
+                step87GetSignalsAfterSet.Font = new Font(step87GetSignalsAfterSet.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.GetDMPSDevices)
                 step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.GetUITouchPanelAddresses)
@@ -190,6 +196,16 @@ namespace DMPSMassDeploymentTool
         private void nudgeButton_Click(object sender, EventArgs e)
         {
             DeployDMPS.Nudge();
+        }
+
+        private void step86WaitForSystemToLoad_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.WaitForSystemToLoad2();
+        }
+
+        private void step87GetSignalsAfterSet_Click(object sender, EventArgs e)
+        {
+            DeployDMPS.GetSignalsAfterSet();
         }
     }
 }

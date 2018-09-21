@@ -48,6 +48,8 @@
             this.step85SaveAndRebootButton = new System.Windows.Forms.Button();
             this.step65WaitForSystemToLoadButton = new System.Windows.Forms.Button();
             this.nudgeButton = new System.Windows.Forms.Button();
+            this.step86WaitForSystemToLoad = new System.Windows.Forms.Button();
+            this.step87GetSignalsAfterSet = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -69,7 +71,7 @@
             this.currentStatus.Multiline = true;
             this.currentStatus.Name = "currentStatus";
             this.currentStatus.ReadOnly = true;
-            this.currentStatus.Size = new System.Drawing.Size(1019, 38);
+            this.currentStatus.Size = new System.Drawing.Size(1263, 38);
             this.currentStatus.TabIndex = 1;
             // 
             // groupBox1
@@ -80,7 +82,7 @@
             this.groupBox1.Controls.Add(this.logListBox);
             this.groupBox1.Location = new System.Drawing.Point(12, 56);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(908, 759);
+            this.groupBox1.Size = new System.Drawing.Size(1152, 849);
             this.groupBox1.TabIndex = 2;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Log";
@@ -92,13 +94,13 @@
             this.logListBox.ItemHeight = 16;
             this.logListBox.Location = new System.Drawing.Point(3, 18);
             this.logListBox.Name = "logListBox";
-            this.logListBox.Size = new System.Drawing.Size(902, 738);
+            this.logListBox.Size = new System.Drawing.Size(1146, 828);
             this.logListBox.TabIndex = 0;
             // 
             // step1ButtonConnect
             // 
             this.step1ButtonConnect.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step1ButtonConnect.Location = new System.Drawing.Point(923, 105);
+            this.step1ButtonConnect.Location = new System.Drawing.Point(1167, 105);
             this.step1ButtonConnect.Name = "step1ButtonConnect";
             this.step1ButtonConnect.Size = new System.Drawing.Size(230, 31);
             this.step1ButtonConnect.TabIndex = 3;
@@ -109,7 +111,7 @@
             // step2ButtonRetrieveZIG
             // 
             this.step2ButtonRetrieveZIG.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step2ButtonRetrieveZIG.Location = new System.Drawing.Point(923, 142);
+            this.step2ButtonRetrieveZIG.Location = new System.Drawing.Point(1167, 142);
             this.step2ButtonRetrieveZIG.Name = "step2ButtonRetrieveZIG";
             this.step2ButtonRetrieveZIG.Size = new System.Drawing.Size(230, 31);
             this.step2ButtonRetrieveZIG.TabIndex = 4;
@@ -120,7 +122,7 @@
             // step3ButtonParseSIG
             // 
             this.step3ButtonParseSIG.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step3ButtonParseSIG.Location = new System.Drawing.Point(923, 179);
+            this.step3ButtonParseSIG.Location = new System.Drawing.Point(1167, 179);
             this.step3ButtonParseSIG.Name = "step3ButtonParseSIG";
             this.step3ButtonParseSIG.Size = new System.Drawing.Size(230, 31);
             this.step3ButtonParseSIG.TabIndex = 5;
@@ -131,7 +133,7 @@
             // step4ButtonGetSignals
             // 
             this.step4ButtonGetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step4ButtonGetSignals.Location = new System.Drawing.Point(923, 216);
+            this.step4ButtonGetSignals.Location = new System.Drawing.Point(1167, 216);
             this.step4ButtonGetSignals.Name = "step4ButtonGetSignals";
             this.step4ButtonGetSignals.Size = new System.Drawing.Size(230, 31);
             this.step4ButtonGetSignals.TabIndex = 6;
@@ -142,7 +144,7 @@
             // step5ButtonPushSPZ
             // 
             this.step5ButtonPushSPZ.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step5ButtonPushSPZ.Location = new System.Drawing.Point(923, 288);
+            this.step5ButtonPushSPZ.Location = new System.Drawing.Point(1167, 288);
             this.step5ButtonPushSPZ.Name = "step5ButtonPushSPZ";
             this.step5ButtonPushSPZ.Size = new System.Drawing.Size(230, 31);
             this.step5ButtonPushSPZ.TabIndex = 7;
@@ -153,7 +155,7 @@
             // step6ButtonPushZig
             // 
             this.step6ButtonPushZig.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step6ButtonPushZig.Location = new System.Drawing.Point(923, 362);
+            this.step6ButtonPushZig.Location = new System.Drawing.Point(1167, 362);
             this.step6ButtonPushZig.Name = "step6ButtonPushZig";
             this.step6ButtonPushZig.Size = new System.Drawing.Size(230, 31);
             this.step6ButtonPushZig.TabIndex = 8;
@@ -164,7 +166,7 @@
             // step7ButtonGetSignals
             // 
             this.step7ButtonGetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step7ButtonGetSignals.Location = new System.Drawing.Point(923, 425);
+            this.step7ButtonGetSignals.Location = new System.Drawing.Point(1167, 450);
             this.step7ButtonGetSignals.Name = "step7ButtonGetSignals";
             this.step7ButtonGetSignals.Size = new System.Drawing.Size(230, 31);
             this.step7ButtonGetSignals.TabIndex = 9;
@@ -175,7 +177,7 @@
             // step8ButtonSetSignals
             // 
             this.step8ButtonSetSignals.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step8ButtonSetSignals.Location = new System.Drawing.Point(923, 493);
+            this.step8ButtonSetSignals.Location = new System.Drawing.Point(1167, 527);
             this.step8ButtonSetSignals.Name = "step8ButtonSetSignals";
             this.step8ButtonSetSignals.Size = new System.Drawing.Size(230, 31);
             this.step8ButtonSetSignals.TabIndex = 10;
@@ -186,7 +188,7 @@
             // step9ButtonGetDMPSDevices
             // 
             this.step9ButtonGetDMPSDevices.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step9ButtonGetDMPSDevices.Location = new System.Drawing.Point(923, 610);
+            this.step9ButtonGetDMPSDevices.Location = new System.Drawing.Point(1170, 710);
             this.step9ButtonGetDMPSDevices.Name = "step9ButtonGetDMPSDevices";
             this.step9ButtonGetDMPSDevices.Size = new System.Drawing.Size(230, 31);
             this.step9ButtonGetDMPSDevices.TabIndex = 11;
@@ -197,7 +199,7 @@
             // step10ButtonGetTSPAddresses
             // 
             this.step10ButtonGetTSPAddresses.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step10ButtonGetTSPAddresses.Location = new System.Drawing.Point(923, 647);
+            this.step10ButtonGetTSPAddresses.Location = new System.Drawing.Point(1170, 747);
             this.step10ButtonGetTSPAddresses.Name = "step10ButtonGetTSPAddresses";
             this.step10ButtonGetTSPAddresses.Size = new System.Drawing.Size(230, 31);
             this.step10ButtonGetTSPAddresses.TabIndex = 12;
@@ -208,7 +210,7 @@
             // step11ButtonPushVTZFiles
             // 
             this.step11ButtonPushVTZFiles.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step11ButtonPushVTZFiles.Location = new System.Drawing.Point(923, 684);
+            this.step11ButtonPushVTZFiles.Location = new System.Drawing.Point(1170, 784);
             this.step11ButtonPushVTZFiles.Name = "step11ButtonPushVTZFiles";
             this.step11ButtonPushVTZFiles.Size = new System.Drawing.Size(230, 31);
             this.step11ButtonPushVTZFiles.TabIndex = 13;
@@ -219,7 +221,7 @@
             // targetDMPS
             // 
             this.targetDMPS.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.targetDMPS.Location = new System.Drawing.Point(923, 56);
+            this.targetDMPS.Location = new System.Drawing.Point(1167, 56);
             this.targetDMPS.Name = "targetDMPS";
             this.targetDMPS.Size = new System.Drawing.Size(230, 46);
             this.targetDMPS.TabIndex = 14;
@@ -228,7 +230,7 @@
             // stopProcessingButton
             // 
             this.stopProcessingButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.stopProcessingButton.Location = new System.Drawing.Point(923, 781);
+            this.stopProcessingButton.Location = new System.Drawing.Point(1167, 871);
             this.stopProcessingButton.Name = "stopProcessingButton";
             this.stopProcessingButton.Size = new System.Drawing.Size(230, 31);
             this.stopProcessingButton.TabIndex = 15;
@@ -239,7 +241,7 @@
             // step85SaveAndRebootButton
             // 
             this.step85SaveAndRebootButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step85SaveAndRebootButton.Location = new System.Drawing.Point(923, 530);
+            this.step85SaveAndRebootButton.Location = new System.Drawing.Point(1167, 564);
             this.step85SaveAndRebootButton.Name = "step85SaveAndRebootButton";
             this.step85SaveAndRebootButton.Size = new System.Drawing.Size(230, 31);
             this.step85SaveAndRebootButton.TabIndex = 16;
@@ -250,7 +252,7 @@
             // step65WaitForSystemToLoadButton
             // 
             this.step65WaitForSystemToLoadButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.step65WaitForSystemToLoadButton.Location = new System.Drawing.Point(923, 325);
+            this.step65WaitForSystemToLoadButton.Location = new System.Drawing.Point(1167, 325);
             this.step65WaitForSystemToLoadButton.Name = "step65WaitForSystemToLoadButton";
             this.step65WaitForSystemToLoadButton.Size = new System.Drawing.Size(230, 31);
             this.step65WaitForSystemToLoadButton.TabIndex = 17;
@@ -261,7 +263,7 @@
             // nudgeButton
             // 
             this.nudgeButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.nudgeButton.Location = new System.Drawing.Point(923, 744);
+            this.nudgeButton.Location = new System.Drawing.Point(1167, 834);
             this.nudgeButton.Name = "nudgeButton";
             this.nudgeButton.Size = new System.Drawing.Size(230, 31);
             this.nudgeButton.TabIndex = 18;
@@ -269,11 +271,35 @@
             this.nudgeButton.UseVisualStyleBackColor = true;
             this.nudgeButton.Click += new System.EventHandler(this.nudgeButton_Click);
             // 
+            // step86WaitForSystemToLoad
+            // 
+            this.step86WaitForSystemToLoad.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step86WaitForSystemToLoad.Location = new System.Drawing.Point(1167, 601);
+            this.step86WaitForSystemToLoad.Name = "step86WaitForSystemToLoad";
+            this.step86WaitForSystemToLoad.Size = new System.Drawing.Size(230, 31);
+            this.step86WaitForSystemToLoad.TabIndex = 19;
+            this.step86WaitForSystemToLoad.Text = "Step 8.6 - Wait for System to load";
+            this.step86WaitForSystemToLoad.UseVisualStyleBackColor = true;
+            this.step86WaitForSystemToLoad.Click += new System.EventHandler(this.step86WaitForSystemToLoad_Click);
+            // 
+            // step87GetSignalsAfterSet
+            // 
+            this.step87GetSignalsAfterSet.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.step87GetSignalsAfterSet.Location = new System.Drawing.Point(1167, 638);
+            this.step87GetSignalsAfterSet.Name = "step87GetSignalsAfterSet";
+            this.step87GetSignalsAfterSet.Size = new System.Drawing.Size(230, 31);
+            this.step87GetSignalsAfterSet.TabIndex = 20;
+            this.step87GetSignalsAfterSet.Text = "Step 8.7 - Get Signals after Set";
+            this.step87GetSignalsAfterSet.UseVisualStyleBackColor = true;
+            this.step87GetSignalsAfterSet.Click += new System.EventHandler(this.step87GetSignalsAfterSet_Click);
+            // 
             // RunningForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1162, 827);
+            this.ClientSize = new System.Drawing.Size(1406, 917);
+            this.Controls.Add(this.step87GetSignalsAfterSet);
+            this.Controls.Add(this.step86WaitForSystemToLoad);
             this.Controls.Add(this.nudgeButton);
             this.Controls.Add(this.step65WaitForSystemToLoadButton);
             this.Controls.Add(this.step85SaveAndRebootButton);
@@ -324,5 +350,7 @@
         private System.Windows.Forms.Button step85SaveAndRebootButton;
         private System.Windows.Forms.Button step65WaitForSystemToLoadButton;
         private System.Windows.Forms.Button nudgeButton;
+        private System.Windows.Forms.Button step86WaitForSystemToLoad;
+        private System.Windows.Forms.Button step87GetSignalsAfterSet;
     }
 }
