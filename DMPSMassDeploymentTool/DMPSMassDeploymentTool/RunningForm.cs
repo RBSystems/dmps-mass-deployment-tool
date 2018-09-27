@@ -72,6 +72,8 @@ namespace DMPSMassDeploymentTool
                 step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Bold);
             else if (step == DeployDMPS.DeploymentStep.PushVtzFiles)
                 step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Bold);
+
+            Application.DoEvents();
         }
 
 

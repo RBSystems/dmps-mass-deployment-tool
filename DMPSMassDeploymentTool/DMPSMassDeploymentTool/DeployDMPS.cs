@@ -236,6 +236,11 @@ namespace DMPSMassDeploymentTool
                     signalIndexToSet--;
                     SetNextSignal();
                 }
+                else if (CurStep == DeploymentStep.SaveAndReboot)
+                {
+                    Log("Retrying...");
+                    SaveAndReboot();
+                }
             }
             else
             {
@@ -497,6 +502,8 @@ namespace DMPSMassDeploymentTool
             //Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
         }
 
+        bool wentHighAlready = false;
+        DateTime wentHighTimeout;
         Dictionary<uint, int> retryCount = new Dictionary<uint, int>();
         List<string> SignalsUnableToSet = new List<string>();
 
@@ -505,7 +512,7 @@ namespace DMPSMassDeploymentTool
             Log("\tAPI On Debug String - nTransactionID:[" + nTransactionID + "], nCategory:[" + nCategory + "], data:[" + pszwData + "]");
         }
 
-        public void StartOver()
+        public bool StartOver()
         {
             if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have finished a deployment.  Do you want to start over?", "",
@@ -514,10 +521,11 @@ namespace DMPSMassDeploymentTool
                 CurStep = DeploymentStep.RetrieveZIG;
                 System.IO.Directory.Delete(TempDirectory, true);
                 var x = TempDirectory; //this will force it to recreate because I put it in the get { }
+                return true;
             }
             else
             {
-                return;
+                return false;
             }
         }
 
@@ -528,7 +536,7 @@ namespace DMPSMassDeploymentTool
             //determine if we need to resume
             if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
             {
-                StartOver();
+                if (!StartOver()) return;
             }
             else if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json"))
             {
@@ -542,7 +550,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
             else if (System.IO.File.Exists(TempDirectory + "NewSignalsSet.txt"))
@@ -557,7 +565,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
             else if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
@@ -572,7 +580,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
             else if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt"))
@@ -587,7 +595,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
             else if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
@@ -602,7 +610,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
             else if (System.IO.File.Exists(TempDirectory + "NewSignals.json"))
@@ -617,7 +625,7 @@ namespace DMPSMassDeploymentTool
                 }
                 else
                 {
-                    StartOver();
+                    if (!StartOver()) return;
                 }
             }
 
@@ -1106,7 +1114,7 @@ namespace DMPSMassDeploymentTool
                         if (!IgnoreSignalName(oldSignal.SignalName))
                         {
                             var newSignalAfterSet = signalListAfterSet.Find(one => one.SignalName == oldSignal.SignalName);
-                            if (newSignalAfterSet != null && !newSignalAfterSet.HasSignalValue || newSignalAfterSet.SignalValue != oldSignal.SignalValue)
+                            if (newSignalAfterSet != null && (!newSignalAfterSet.HasSignalValue || newSignalAfterSet.SignalValue != oldSignal.SignalValue))
                             {
                                 //PROBLEM THIS IS A PROBLEM
                                 signalsNotSetCorrectly.Add(newSignalAfterSet);
@@ -1461,10 +1469,10 @@ namespace DMPSMassDeploymentTool
         CrestronSignal startupBusySignal;
 
         public void WaitForSystemToLoad()
-        {
+        {            
             CurStep = DeploymentStep.WaitForSystemToLoad;            
-            Log("---Waiting for system to load - 10 seconds---");
-            System.Threading.Thread.Sleep(10000);
+            Log("---Waiting for system to load - 2 minutes---");
+            System.Threading.Thread.Sleep(120000);
             Log("---Finding System_busy signal---");
             startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
             int curAPITransactionID = 0;
@@ -1477,8 +1485,8 @@ namespace DMPSMassDeploymentTool
         public void WaitForSystemToLoad2()
         {
             CurStep = DeploymentStep.WaitForSystemToLoad2;
-            Log("---Waiting for system to load - 10 seconds---");
-            System.Threading.Thread.Sleep(10000);
+            Log("---Waiting for system to load - 2 minutes---");
+            System.Threading.Thread.Sleep(120000);
             Log("---Finding System_busy signal---");
             startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
             int curAPITransactionID = 0;
