@@ -113,6 +113,9 @@ namespace DMPSMassDeploymentTool
                 logListBox.Items.Insert(0, message);
                 logListBox.Update();
 
+                if (logListBox.Items.Count % 25 == 0)
+                    Application.DoEvents();
+
                 if (DateTime.Now.Subtract(lastSave).TotalSeconds >= 5)
                     System.IO.File.WriteAllLines(DeployDMPS.TempDirectory + logFileName, inMemory);
             };

@@ -61,6 +61,7 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="TelnetGetDMPSSignals.cs" />
     <Compile Include="TelnetVTZ.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -69,6 +70,12 @@
     </Compile>
     <Compile Include="RunningForm.Designer.cs">
       <DependentUpon>RunningForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TestForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="TestForm.Designer.cs">
+      <DependentUpon>TestForm.cs</DependentUpon>
     </Compile>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
@@ -84,6 +91,9 @@
     </Compile>
     <EmbeddedResource Include="RunningForm.resx">
       <DependentUpon>RunningForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="TestForm.resx">
+      <DependentUpon>TestForm.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="elkQuery.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

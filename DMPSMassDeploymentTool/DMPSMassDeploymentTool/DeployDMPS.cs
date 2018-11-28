@@ -1027,7 +1027,7 @@ namespace DMPSMassDeploymentTool
         {
             return SignalName.StartsWith("::") ||
                     SignalName.StartsWith("//") ||
-                    SignalName.StartsWith("DMPS-300-C._");
+                    (SignalName.StartsWith("DMPS-300-C._") && !SignalName.Contains("Mic") && !SignalName.Contains("Mute") && !SignalName.Contains("Vol"));
         }
 
         public void GetNextNewSignal()
@@ -1076,6 +1076,9 @@ namespace DMPSMassDeploymentTool
 
         public void GetSignalsAfterSet()
         {
+            GetDevicesFromDMPS();
+            return;
+
             //copy the list for the redo
             signalListAfterSet = new List<CrestronSignal>();
             signalListAfterDeployment.ForEach(one => signalListAfterSet.Add(
