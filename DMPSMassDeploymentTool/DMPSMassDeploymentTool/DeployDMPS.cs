@@ -1087,12 +1087,21 @@ namespace DMPSMassDeploymentTool
         #region Step 6 - Wait for System to Load
 
         CrestronSignal startupBusySignal;
+        bool firstReboot = true;
 
         public void WaitForSystemToLoad()
         {
-            CurStep = DeploymentStep.WaitForSystemToLoad;
-            Log("---Waiting for system to load - 2 minutes---");
-            System.Threading.Thread.Sleep(120000);
+            if (firstReboot)
+            {
+                CurStep = DeploymentStep.WaitForSystemToLoad;
+                Log("---Waiting for system to load - 2 minutes---");
+                System.Threading.Thread.Sleep(120000);
+            }
+            else
+            {
+                Log("---Waiting for system to load - 30 seconds---");
+                System.Threading.Thread.Sleep(30000);
+            }
             Log("---Finding System_busy signal---");
             startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
             int curAPITransactionID = 0;
@@ -1480,12 +1489,23 @@ namespace DMPSMassDeploymentTool
         #endregion
 
         #region Step 10 - Wait for System to Load again
-        
+
+        bool secondTimeFirstReboot = true;
+
         public void WaitForSystemToLoad2()
-        {
-            CurStep = DeploymentStep.WaitForSystemToLoad2;
-            Log("---Waiting for system to load - 2 minutes---");
-            System.Threading.Thread.Sleep(120000);
+        {            
+            if (firstReboot)
+            {
+                CurStep = DeploymentStep.WaitForSystemToLoad2;
+                Log("---Waiting for system to load - 2 minutes---");
+                System.Threading.Thread.Sleep(120000);
+            }
+            else
+            {
+                Log("---Waiting for system to load - 30 seconds---");
+                System.Threading.Thread.Sleep(30000);
+            }
+            
             Log("---Finding System_busy signal---");
             startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
             int curAPITransactionID = 0;
