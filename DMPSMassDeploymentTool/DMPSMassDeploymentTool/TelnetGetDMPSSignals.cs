@@ -12,14 +12,14 @@ namespace DMPSMassDeploymentTool
         TentacleSoftware.Telnet.TelnetClient client;
         bool done = false;
         bool failed = false;
-        DateTime minuteTimeout = DateTime.Now.AddMinutes(1);
+        DateTime completeTimeout = DateTime.Now.AddSeconds(10);
         public event EventHandler<string> OnLog;
 
         public event EventHandler<List<DeployDMPS.CrestronSignal>> OnComplete;
 
         List<DeployDMPS.CrestronSignal> list = new List<DeployDMPS.CrestronSignal>();
 
-        System.Windows.Forms.Timer t = new System.Windows.Forms.Timer();
+        System.Timers.Timer t = new System.Timers.Timer(1000);
         
         public bool StartGetDMPSSignals(string ipAddress)
         {
@@ -30,20 +30,24 @@ namespace DMPSMassDeploymentTool
             client.Connect();
 
             System.Threading.Thread.Sleep(500);
-            client.Send("\n");           
+            client.Send("\n");
 
-            t.Interval = 5000;
-            t.Tick += T_Tick;
+            completeTimeout = DateTime.Now.AddSeconds(10);
+            t.Elapsed += T_Elapsed;
             t.Start();
-
+            
             return true;               
         }
 
-        private void T_Tick(object sender, EventArgs e)
-        {
-            done = true;
-            client.Disconnect();
-            OnComplete?.Invoke(this, list);
+        private void T_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {           
+            if (completeTimeout < DateTime.Now)
+            {
+                t.Stop();
+                done = true;
+                client.Disconnect();
+                OnComplete?.Invoke(this, list);                
+            }
         }
         int rcvCount = 0;
         private void HandleMessageReceived(object sender, string message)
@@ -65,12 +69,21 @@ namespace DMPSMassDeploymentTool
             }    
             else if (message.Contains("=") && message.IndexOf("=") == 8)
             {
-                //t.Stop();
-                //t.Start();
+                completeTimeout = DateTime.Now.AddSeconds(10);
+
                 string signalNumber = message.Substring(0, 8);
                 uint signalInt = uint.Parse(signalNumber, System.Globalization.NumberStyles.HexNumber);
 
-                string signalValue = message.Substring(8);
+                string signalValue = message.Substring(9);
+
+                if (signalValue.StartsWith("["))
+                {
+                    //parse ascii                    
+                    string[] split = signalValue.Split(new char[] { '[', ']' }, StringSplitOptions.RemoveEmptyEntries);
+                    signalValue = "";
+                    foreach (var x in split)
+                        signalValue += ((char)(int.Parse(x, System.Globalization.NumberStyles.HexNumber)));
+                }
 
                 list.Add(new DeployDMPS.CrestronSignal() { HasSignalValue = true, SignalIndex = signalInt, SignalValue = signalValue });
             }

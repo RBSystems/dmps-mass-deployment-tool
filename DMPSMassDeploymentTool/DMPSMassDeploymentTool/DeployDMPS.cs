@@ -251,7 +251,7 @@ namespace DMPSMassDeploymentTool
                     Log("ZIG file Xfer complete");
                     UnzipAndParseSigFile();
                 }
-                else if (CurStep == DeploymentStep.GetCurrentSignals && TxnIDs[CurStep] == nTransactionID)
+                /*else if (CurStep == DeploymentStep.GetCurrentSignals && TxnIDs[CurStep] == nTransactionID)
                 {
                     if (signalList[NextOldSignalIndex].HasSignalValue)
                     {
@@ -264,7 +264,7 @@ namespace DMPSMassDeploymentTool
                         NextOldSignalIndex--;
                         GetNextOldSignal();
                     }
-                }
+                }*/
                 else if (CurStep == DeploymentStep.PushNewSPZFile && (TxnIDs[CurStep] == nTransactionID || TxnIDs[CurStep] == 0))
                 {
                     Log("New SPZ file pushed");
@@ -284,7 +284,7 @@ namespace DMPSMassDeploymentTool
                     if (StopProcessing) return;
                     GetCurrentSignals2();
                 }
-                else if (CurStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && TxnIDs[CurStep] == nTransactionID)
+                /*else if (CurStep == DeploymentStep.ParseNewSigAndGetCurrentSignals2 && TxnIDs[CurStep] == nTransactionID)
                 {
                     if (signalListAfterDeployment[NextNewSignalIndex].HasSignalValue)
                     {
@@ -297,7 +297,7 @@ namespace DMPSMassDeploymentTool
                         NextNewSignalIndex--;
                         GetNextNewSignal();
                     }
-                }
+                }*/
                 else if (CurStep == DeploymentStep.SetSignals && TxnIDs[CurStep] == nTransactionID)
                 {
                     if (CheckSetSignal)
@@ -328,7 +328,7 @@ namespace DMPSMassDeploymentTool
                         }
                     }
                 }
-                else if (CurStep == DeploymentStep.GetSignalsAfterSet && TxnIDs[CurStep] == nTransactionID)
+                /*else if (CurStep == DeploymentStep.GetSignalsAfterSet && TxnIDs[CurStep] == nTransactionID)
                 {
                     if (signalListAfterSet[NextNewSignalAfterSetIndex].HasSignalValue)
                     {
@@ -341,7 +341,7 @@ namespace DMPSMassDeploymentTool
                         NextNewSignalAfterSetIndex--;
                         GetNextNewSignalAfterSet();
                     }
-                }
+                }*/
                 else if (CurStep == DeploymentStep.SaveAndReboot && TxnIDs[CurStep] == nTransactionID)
                 {
                     Log("Signals saved and device reboot initiated");
@@ -353,7 +353,7 @@ namespace DMPSMassDeploymentTool
 
                     if (StopProcessing) return;
                     //trigger next step
-                    GetSignalsAfterSet();
+                    WaitForSystemToLoad2();
                 }
                 else if (CurStep == DeploymentStep.GetDMPSDevices && TxnIDs[CurStep] == nTransactionID)
                 {
@@ -441,7 +441,7 @@ namespace DMPSMassDeploymentTool
                     return;
                 }
 
-                Log("Startup busy is still on");                
+                Log("Startup busy is still on");
                 WaitForSystemToLoad();
             }
             else if (CurStep == DeploymentStep.WaitForSystemToLoad2 && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState)// && TxnIDs[CurStep] == nTransactionID)
@@ -502,8 +502,6 @@ namespace DMPSMassDeploymentTool
             //Log(nEventType.ToString() + " - " + lParam1.ToString() + " = [" + pszwParam + "]");
         }
 
-        bool wentHighAlready = false;
-        DateTime wentHighTimeout;
         Dictionary<uint, int> retryCount = new Dictionary<uint, int>();
         List<string> SignalsUnableToSet = new List<string>();
 
@@ -686,6 +684,8 @@ namespace DMPSMassDeploymentTool
             }
         }
 
+        #region Step 1 - Retrieve ZIG
+
         public void RetrieveZigFile()
         {
             CurStep = DeploymentStep.RetrieveZIG;
@@ -705,29 +705,9 @@ namespace DMPSMassDeploymentTool
             Log("\tFileXferGet Output:[" + outputs + "]");
         }
 
+        #endregion
 
-        public class CrestronSignal
-        {
-            public string SignalName { get; set; }
-            public uint SignalIndex { get; set; }
-            public byte SignalType { get; set; }
-            public byte SignalFlags { get; set; }
-
-            public override string ToString()
-            {
-                return SignalName + " - [Index: " + SignalIndex + "] [Type: " + SignalType.ToString() + "]";
-            }
-
-            public bool HasSignalValue { get; set; }
-            public string SignalValue { get; set; }
-        }
-
-
-        List<CrestronSignal> signalList = new List<CrestronSignal>();
-
-        List<CrestronSignal> signalListAfterDeployment = new List<CrestronSignal>();
-
-        List<CrestronSignal> signalListAfterSet = new List<CrestronSignal>();
+        #region Step 2 - Unzip and Parse SIG
 
         public void UnzipAndParseSigFile()
         {
@@ -841,99 +821,6 @@ namespace DMPSMassDeploymentTool
                 Newtonsoft.Json.JsonConvert.DeserializeObject<CrestronSignal[]>(System.IO.File.ReadAllText(TempDirectory + "NewSignalsComplete.json")));
         }
 
-        public void GetCurrentSignals()
-        {
-            CurStep = DeploymentStep.GetCurrentSignals;
-            Log("---------------");
-            Log("Getting current signals from DMPS....");
-            string output = "";
-            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
-
-            NextOldSignalIndex = -1;
-            GetNextOldSignal();            
-        }
-
-        int NextOldSignalIndex = -1;
-        public void GetNextOldSignal()
-        {
-            while (true)
-            {
-                NextOldSignalIndex++;
-
-                if (NextOldSignalIndex >= signalList.Count)
-                {
-                    //move on to next step
-                    int count = signalList.Count(one => one.HasSignalValue);
-
-                    var possibleCount = signalList.Count(one => !IgnoreSignalName(one.SignalName));
-
-                    Log("Current Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
-
-                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
-
-                    if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
-                        System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
-
-                    System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
-
-                    if (StopProcessing) return;
-
-                    SendSPZFile();
-
-                    return;
-                }
-
-                if (IgnoreSignalName(signalList[NextOldSignalIndex].SignalName))
-                {
-                    continue;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            
-            int curAPITransactionID = 0;
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalList[NextOldSignalIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
-
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
-
-        public void SendSPZFile()
-        {
-            CurStep = DeploymentStep.PushNewSPZFile;
-            Log("---------------");
-            Log("Sending new SPZ file....");
-
-            int curAPITransactionID = 0;
-            vptSessionClass.AsyncActivateStr(0, "ProgramSend \"" + NewSPZFileName + "\"", 10000, curAPITransactionID, 0, 0);
-
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
-
-        public void SendNewZIGFile()
-        {
-            CurStep = DeploymentStep.PushNewZigFile;
-
-            Log("---------------");
-            Log("Sending new ZIG file....");
-
-            string sigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".sig");
-            string zigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".zig");
-
-            if (System.IO.File.Exists(TempDirectory + System.IO.Path.GetFileName(zigFileName)))
-                System.IO.File.Delete(TempDirectory + System.IO.Path.GetFileName(zigFileName));
-
-            using (var zip = ZipFile.Open(TempDirectory + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
-                zip.CreateEntryFromFile(sigFileName, System.IO.Path.GetFileName(sigFileName));
-
-            int curAPITransactionID = 0;
-            vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + TempDirectory + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ", 
-                5000, ref curAPITransactionID, 0, 0);
-
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
 
         public void ParseNewSigFile()
         {
@@ -1009,19 +896,276 @@ namespace DMPSMassDeploymentTool
 
             System.IO.File.WriteAllText(TempDirectory + "NewSignals.json", signalListJson);
         }
-                
+
+
+        #endregion
+
+        #region Step 3 - Get Current Signals
+
+        public class CrestronSignal
+        {
+            public string SignalName { get; set; }
+            public uint SignalIndex { get; set; }
+            public byte SignalType { get; set; }
+            public byte SignalFlags { get; set; }
+
+            public override string ToString()
+            {
+                return SignalName + " - [Index: " + SignalIndex + "] [Type: " + SignalType.ToString() + "]";
+            }
+
+            public bool HasSignalValue { get; set; }
+            public string SignalValue { get; set; }
+        }
+
+        List<CrestronSignal> signalList = new List<CrestronSignal>();
+
+        List<CrestronSignal> signalListAfterDeployment = new List<CrestronSignal>();
+
+        List<CrestronSignal> signalListAfterSet = new List<CrestronSignal>();
+
+        public bool IgnoreSignalName(string SignalName)
+        {
+            return SignalName.StartsWith("::") ||
+                    SignalName.StartsWith("//") ||
+                    (SignalName.StartsWith("DMPS-300-C._") && !SignalName.Contains("Mic") && !SignalName.Contains("Mute") && !SignalName.Contains("Vol"));
+        }
+
+        public void GetCurrentSignals()
+        {
+            CurStep = DeploymentStep.GetCurrentSignals;
+            Log("---------------");
+            Log("Getting current signals from DMPS....");
+            /*string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
+
+            NextOldSignalIndex = -1;
+            GetNextOldSignal();     */
+
+            TelnetGetDMPSSignals sigFinder = new TelnetGetDMPSSignals();
+            sigFinder.OnLog += SigFinder_OnLog;
+            sigFinder.OnComplete += SigFinder_OnComplete;
+            sigFinder.StartGetDMPSSignals(DMPSIPAddress);
+        }
+
+        private void SigFinder_OnComplete(object sender, List<CrestronSignal> e)
+        {
+            if (e == null)
+            {
+                //no signals returned
+                Log("No signals returned, trying again");
+                GetCurrentSignals();
+            }
+            else
+            {
+                foreach (var signal in e)
+                {
+                    var sig = signalList.Find(one => one.SignalIndex == signal.SignalIndex);
+                    if (sig != null)
+                    {
+                        sig.SignalValue = signal.SignalValue;
+                        sig.HasSignalValue = true;
+                    }
+                }
+
+                //move on to next step
+                int count = signalList.Count(one => one.HasSignalValue);
+
+                var possibleCount = signalList.Count(one => !IgnoreSignalName(one.SignalName));
+
+                Log("Current Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
+
+                if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+                    System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
+
+                System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
+
+                if (StopProcessing) return;
+
+                SendSPZFile();
+            }
+        }
+
+        private void SigFinder_OnLog(object sender, string e)
+        {
+            Log(e);
+        }
+
+        /*
+        int NextOldSignalIndex = -1;
+        public void GetNextOldSignal()
+        {
+            while (true)
+            {
+                NextOldSignalIndex++;
+
+                if (NextOldSignalIndex >= signalList.Count)
+                {
+                    //move on to next step
+                    int count = signalList.Count(one => one.HasSignalValue);
+
+                    var possibleCount = signalList.Count(one => !IgnoreSignalName(one.SignalName));
+
+                    Log("Current Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
+
+                    if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "OldSignalsComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "OldSignalsComplete.json", signalListJson);
+
+                    if (StopProcessing) return;
+
+                    SendSPZFile();
+
+                    return;
+                }
+
+                if (IgnoreSignalName(signalList[NextOldSignalIndex].SignalName))
+                {
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalList[NextOldSignalIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
+        }*/
+
+        #endregion
+
+        #region Step 4 - Push new SPZ File
+        public void SendSPZFile()
+        {
+            CurStep = DeploymentStep.PushNewSPZFile;
+            Log("---------------");
+            Log("Sending new SPZ file....");
+
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, "ProgramSend \"" + NewSPZFileName + "\"", 10000, curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
+        }
+
+        #endregion
+
+        #region Step 5 - Push new ZIG File
+        public void SendNewZIGFile()
+        {
+            CurStep = DeploymentStep.PushNewZigFile;
+
+            Log("---------------");
+            Log("Sending new ZIG file....");
+
+            string sigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".sig");
+            string zigFileName = System.IO.Path.ChangeExtension(NewSPZFileName, ".zig");
+
+            if (System.IO.File.Exists(TempDirectory + System.IO.Path.GetFileName(zigFileName)))
+                System.IO.File.Delete(TempDirectory + System.IO.Path.GetFileName(zigFileName));
+
+            using (var zip = ZipFile.Open(TempDirectory + System.IO.Path.GetFileName(zigFileName), ZipArchiveMode.Create))
+                zip.CreateEntryFromFile(sigFileName, System.IO.Path.GetFileName(sigFileName));
+
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, @"FileXferPut """ + TempDirectory + System.IO.Path.GetFileName(zigFileName) + @""" ""\SIMPL\" + System.IO.Path.GetFileName(zigFileName) + @""" ",
+                5000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
+        }
+
+        #endregion
+
+        #region Step 6 - Wait for System to Load
+
+        CrestronSignal startupBusySignal;
+
+        public void WaitForSystemToLoad()
+        {
+            CurStep = DeploymentStep.WaitForSystemToLoad;
+            Log("---Waiting for system to load - 2 minutes---");
+            System.Threading.Thread.Sleep(120000);
+            Log("---Finding System_busy signal---");
+            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
+            int curAPITransactionID = 0;
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
+        }
+
+        #endregion
+
+        #region Step 7 - Get Current Signals after Load
+
         public void GetCurrentSignals2()
         {
             CurStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;
-            
+
             Log("---------------");
             Log("Getting current signals from DMPS (again)....");
 
-            NextNewSignalIndex = -1;
-            GetNextNewSignal();                        
+            TelnetGetDMPSSignals sigFinder = new TelnetGetDMPSSignals();
+            sigFinder.OnLog += SigFinder_OnLog1;
+            sigFinder.OnComplete += SigFinder_OnComplete1;
+
+            sigFinder.StartGetDMPSSignals(DMPSIPAddress);
+            //NextNewSignalIndex = -1;
+            //GetNextNewSignal();                        
         }
 
-        int NextNewSignalIndex = -1;
+        private void SigFinder_OnComplete1(object sender, List<CrestronSignal> e)
+        {
+            if (e == null)
+            {
+                //nothing returned
+                Log("No signals returned");
+                GetCurrentSignals2();
+            }
+            else
+            {
+                foreach (var signal in e)
+                {
+                    var sig = signalListAfterDeployment.Find(one => one.SignalIndex == signal.SignalIndex);
+                    if (sig != null)
+                    {
+                        sig.SignalValue = signal.SignalValue;
+                        sig.HasSignalValue = true;
+                    }
+                }
+
+                //move on to next step
+                int count = signalListAfterDeployment.Count(one => one.HasSignalValue);
+                int possibleCount = signalListAfterDeployment.Count(one => !IgnoreSignalName(one.SignalName));
+                Log("New Signals complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
+
+                if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
+                    System.IO.File.Delete(TempDirectory + "NewSignalsComplete.json");
+
+                System.IO.File.WriteAllText(TempDirectory + "NewSignalsComplete.json", signalListJson);
+
+                if (StopProcessing) return;
+
+                SetSignals();
+            }
+        }
+
+        private void SigFinder_OnLog1(object sender, string e)
+        {
+            Log(e);
+        }
+
+        /*int NextNewSignalIndex = -1;
 
         public bool IgnoreSignalName(string SignalName)
         {
@@ -1071,109 +1215,17 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalListAfterDeployment[NextNewSignalIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
 
             TxnIDs[CurStep] = curAPITransactionID;
-        }
+        }*/
 
+        #endregion
 
-        public void GetSignalsAfterSet()
-        {
-            GetDevicesFromDMPS();
-            return;
-
-            //copy the list for the redo
-            signalListAfterSet = new List<CrestronSignal>();
-            signalListAfterDeployment.ForEach(one => signalListAfterSet.Add(
-                new CrestronSignal()
-                {
-                    HasSignalValue = false,
-                    SignalFlags = one.SignalFlags,
-                    SignalIndex = one.SignalIndex,
-                    SignalName = one.SignalName,
-                    SignalType = one.SignalType                    
-                }));
-
-            CurStep = DeploymentStep.GetSignalsAfterSet;
-
-            Log("---------------");
-            Log("Getting current signals from DMPS (for the third time)....");
-
-            NextNewSignalAfterSetIndex = -1;
-            GetNextNewSignalAfterSet();
-        }
-
-        int NextNewSignalAfterSetIndex = -1;
-
-        public void GetNextNewSignalAfterSet()
-        {
-            while (true)
-            {
-                NextNewSignalAfterSetIndex++;
-
-                if (NextNewSignalAfterSetIndex >= signalListAfterSet.Count)
-                {
-                    //do a check and see if we have signals that didn't set right
-                    List<CrestronSignal> signalsNotSetCorrectly = new List<CrestronSignal>();
-                    foreach (var oldSignal in signalList)
-                    {
-                        if (!IgnoreSignalName(oldSignal.SignalName))
-                        {
-                            var newSignalAfterSet = signalListAfterSet.Find(one => one.SignalName == oldSignal.SignalName);
-                            if (newSignalAfterSet != null && (!newSignalAfterSet.HasSignalValue || newSignalAfterSet.SignalValue != oldSignal.SignalValue))
-                            {
-                                //PROBLEM THIS IS A PROBLEM
-                                signalsNotSetCorrectly.Add(newSignalAfterSet);
-                            }
-                        }
-                    }
-
-                    if (signalsNotSetCorrectly.Count > 0)
-                    {
-                        var signalListNotCorrectJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalsNotSetCorrectly.ToArray());
-
-                        if (System.IO.File.Exists(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json"))
-                            System.IO.File.Delete(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json");
-
-                        System.IO.File.WriteAllText(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json", signalListNotCorrectJson);
-                    }
-
-                    //move on to next step
-                    int count = signalListAfterSet.Count(one => one.HasSignalValue);
-                    int possibleCount = signalListAfterSet.Count(one => !IgnoreSignalName(one.SignalName));
-                    Log("New Signals after set complete - " + count + " out of " + possibleCount + " retrieved current values");
-
-                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterSet.ToArray());
-
-                    if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json"))
-                        System.IO.File.Delete(TempDirectory + "NewSignalsAfterSetComplete.json");
-
-                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsAfterSetComplete.json", signalListJson);
-
-                    if (StopProcessing) return;
-                    GetDevicesFromDMPS();
-
-                    return;
-                }
-
-                if (IgnoreSignalName(signalListAfterSet[NextNewSignalAfterSetIndex].SignalName))
-                {
-                    continue;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            int curAPITransactionID = 0;
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalListAfterSet[NextNewSignalAfterSetIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
-
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
+        #region Step 8 - Set Signals
 
         public class SignalToSet
         {
             public string CommandToSet { get; set; }
             public string CommandToGet { get; set; }
-            public CrestronSignal Signal { get; set; }            
+            public CrestronSignal Signal { get; set; }
             public bool IsConfirmed { get; set; }
             public string ExpectedValue { get; set; }
         }
@@ -1228,8 +1280,8 @@ namespace DMPSMassDeploymentTool
                                 IsConfirmed = false,
                                 CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
                                 ExpectedValue = oldSignal.SignalValue
-                            });                        
-                    }                    
+                            });
+                    }
                     else if (!oldSignal.HasSignalValue && newSignal.HasSignalValue)
                     {
                         //reset this one to default
@@ -1354,9 +1406,9 @@ namespace DMPSMassDeploymentTool
                         x.ExpectedValue = "10010";
                     }
                 }
-            }            
+            }
 
-            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt", 
+            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt",
                 signalsToSet.Select(one => one.CommandToSet + "|" + one.Signal.SignalName + " (index " + one.Signal.SignalIndex + ")"));
 
             string output = "";
@@ -1381,7 +1433,7 @@ namespace DMPSMassDeploymentTool
             else
             {
                 signalIndexToSet++;
-                var command = signalsToSet[signalIndexToSet];                
+                var command = signalsToSet[signalIndexToSet];
 
                 //set it up so we know to check it
                 CheckSetSignal = true;
@@ -1395,7 +1447,7 @@ namespace DMPSMassDeploymentTool
 
         public void CheckSignalJustSet()
         {
-            var command = signalsToSet[signalIndexToSet];            
+            var command = signalsToSet[signalIndexToSet];
 
             CheckSetSignal = false;
 
@@ -1404,6 +1456,10 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.AsyncActivateStr(0, command.CommandToGet, 10000, ref curAPITransactionID, 0, 0);
             TxnIDs[CurStep] = curAPITransactionID;
         }
+
+        #endregion
+
+        #region Step 9 - Save and Reboot
 
         public void SaveAndReboot()
         {
@@ -1421,6 +1477,198 @@ namespace DMPSMassDeploymentTool
             TxnIDs[CurStep] = curAPITransactionID;
         }
 
+        #endregion
+
+        #region Step 10 - Wait for System to Load again
+        
+        public void WaitForSystemToLoad2()
+        {
+            CurStep = DeploymentStep.WaitForSystemToLoad2;
+            Log("---Waiting for system to load - 2 minutes---");
+            System.Threading.Thread.Sleep(120000);
+            Log("---Finding System_busy signal---");
+            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
+            int curAPITransactionID = 0;
+            string output = "";
+            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+            TxnIDs[CurStep] = curAPITransactionID;
+        }
+
+        #endregion
+
+        #region Step 11 - Get Signals After Set
+
+        public void GetSignalsAfterSet()
+        {           
+            //copy the list for the redo
+            signalListAfterSet = new List<CrestronSignal>();
+            signalListAfterDeployment.ForEach(one => signalListAfterSet.Add(
+                new CrestronSignal()
+                {
+                    HasSignalValue = false,
+                    SignalFlags = one.SignalFlags,
+                    SignalIndex = one.SignalIndex,
+                    SignalName = one.SignalName,
+                    SignalType = one.SignalType
+                }));
+
+            CurStep = DeploymentStep.GetSignalsAfterSet;
+
+            Log("---------------");
+            Log("Getting current signals from DMPS (for the third time, just to double check)....");
+
+            /*NextNewSignalAfterSetIndex = -1;
+            GetNextNewSignalAfterSet();*/
+
+            TelnetGetDMPSSignals sigFinder = new TelnetGetDMPSSignals();
+            sigFinder.OnLog += SigFinder_OnLog2;
+            sigFinder.OnComplete += SigFinder_OnComplete2;
+
+            sigFinder.StartGetDMPSSignals(DMPSIPAddress);
+        }
+
+        private void SigFinder_OnComplete2(object sender, List<CrestronSignal> e)
+        {
+            if (e == null)
+            {
+                Log("No signals returned");
+                if (StopProcessing) return;
+                GetSignalsAfterSet();
+            }
+            else
+            {
+                //fill it up
+                foreach (var signal in e)
+                {
+                    var sig = signalListAfterSet.Find(one => one.SignalIndex == signal.SignalIndex);
+                    if (sig != null)
+                    {
+                        sig.HasSignalValue = true;
+                        sig.SignalValue = signal.SignalValue;
+                    }
+                }
+
+                //check
+                List<CrestronSignal> signalsNotSetCorrectly = new List<CrestronSignal>();
+                foreach (var oldSignal in signalList)
+                {
+                    if (!IgnoreSignalName(oldSignal.SignalName))
+                    {
+                        var newSignalAfterSet = signalListAfterSet.Find(one => one.SignalName == oldSignal.SignalName);
+                        if (newSignalAfterSet != null && (!newSignalAfterSet.HasSignalValue || newSignalAfterSet.SignalValue != oldSignal.SignalValue))
+                        {
+                            //PROBLEM THIS IS A PROBLEM
+                            signalsNotSetCorrectly.Add(newSignalAfterSet);
+                        }
+                    }
+                }
+
+                if (signalsNotSetCorrectly.Count > 0)
+                {
+                    var signalListNotCorrectJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalsNotSetCorrectly.ToArray());
+
+                    if (System.IO.File.Exists(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json"))
+                        System.IO.File.Delete(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json", signalListNotCorrectJson);
+                }
+
+                //move on to next step
+                int count = signalListAfterSet.Count(one => one.HasSignalValue);
+                int possibleCount = signalListAfterSet.Count(one => !IgnoreSignalName(one.SignalName));
+                Log("New Signals after set complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterSet.ToArray());
+
+                if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json"))
+                    System.IO.File.Delete(TempDirectory + "NewSignalsAfterSetComplete.json");
+
+                System.IO.File.WriteAllText(TempDirectory + "NewSignalsAfterSetComplete.json", signalListJson);
+
+                if (StopProcessing) return;
+                GetDevicesFromDMPS();
+            }
+        }
+
+        private void SigFinder_OnLog2(object sender, string e)
+        {
+            Log(e);
+        }
+
+        //int NextNewSignalAfterSetIndex = -1;
+        /*
+        public void GetNextNewSignalAfterSet()
+        {
+            while (true)
+            {
+                NextNewSignalAfterSetIndex++;
+
+                if (NextNewSignalAfterSetIndex >= signalListAfterSet.Count)
+                {
+                    //do a check and see if we have signals that didn't set right
+                    List<CrestronSignal> signalsNotSetCorrectly = new List<CrestronSignal>();
+                    foreach (var oldSignal in signalList)
+                    {
+                        if (!IgnoreSignalName(oldSignal.SignalName))
+                        {
+                            var newSignalAfterSet = signalListAfterSet.Find(one => one.SignalName == oldSignal.SignalName);
+                            if (newSignalAfterSet != null && (!newSignalAfterSet.HasSignalValue || newSignalAfterSet.SignalValue != oldSignal.SignalValue))
+                            {
+                                //PROBLEM THIS IS A PROBLEM
+                                signalsNotSetCorrectly.Add(newSignalAfterSet);
+                            }
+                        }
+                    }
+
+                    if (signalsNotSetCorrectly.Count > 0)
+                    {
+                        var signalListNotCorrectJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalsNotSetCorrectly.ToArray());
+
+                        if (System.IO.File.Exists(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json"))
+                            System.IO.File.Delete(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json");
+
+                        System.IO.File.WriteAllText(TempDirectory + "ProblemSignalsNotCorrectAfterSet.json", signalListNotCorrectJson);
+                    }
+
+                    //move on to next step
+                    int count = signalListAfterSet.Count(one => one.HasSignalValue);
+                    int possibleCount = signalListAfterSet.Count(one => !IgnoreSignalName(one.SignalName));
+                    Log("New Signals after set complete - " + count + " out of " + possibleCount + " retrieved current values");
+
+                    var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterSet.ToArray());
+
+                    if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json"))
+                        System.IO.File.Delete(TempDirectory + "NewSignalsAfterSetComplete.json");
+
+                    System.IO.File.WriteAllText(TempDirectory + "NewSignalsAfterSetComplete.json", signalListJson);
+
+                    if (StopProcessing) return;
+                    GetDevicesFromDMPS();
+
+                    return;
+                }
+
+                if (IgnoreSignalName(signalListAfterSet[NextNewSignalAfterSetIndex].SignalName))
+                {
+                    continue;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            int curAPITransactionID = 0;
+            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + signalListAfterSet[NextNewSignalAfterSetIndex].SignalIndex, 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs[CurStep] = curAPITransactionID;
+        }*/
+
+        #endregion
+
+        #region Step 12 - Get DMPS Devices
+
         string[] DeviceResultsFromDMPS;
         int deviceToQueryIndex = 0;
 
@@ -1434,6 +1682,10 @@ namespace DMPSMassDeploymentTool
             TxnIDs[CurStep] = curAPITransactionID;
         }
 
+        #endregion
+
+        #region Step 13 - Get UI TSP Addresses
+        
         public void GetTSPIPAddresses()
         {
             CurStep = DeploymentStep.GetUITouchPanelAddresses;
@@ -1455,8 +1707,6 @@ namespace DMPSMassDeploymentTool
             }
             else
             {
-                
-
                 Log("Getting device info for index" + DeviceResultsFromDMPS[deviceToQueryIndex] + "....");
 
                 int value = Convert.ToInt32(DeviceResultsFromDMPS[deviceToQueryIndex], 16);
@@ -1468,36 +1718,10 @@ namespace DMPSMassDeploymentTool
                 deviceToQueryIndex = deviceToQueryIndex + 2;
             }
         }
-                
-        CrestronSignal startupBusySignal;
 
-        public void WaitForSystemToLoad()
-        {            
-            CurStep = DeploymentStep.WaitForSystemToLoad;            
-            Log("---Waiting for system to load - 2 minutes---");
-            System.Threading.Thread.Sleep(120000);
-            Log("---Finding System_busy signal---");
-            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
-            int curAPITransactionID = 0;
-            string output = "";
-            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
+        #endregion
 
-        public void WaitForSystemToLoad2()
-        {
-            CurStep = DeploymentStep.WaitForSystemToLoad2;
-            Log("---Waiting for system to load - 2 minutes---");
-            System.Threading.Thread.Sleep(120000);
-            Log("---Finding System_busy signal---");
-            startupBusySignal = signalListAfterDeployment.Find(one => one.SignalName == "System_busy");
-            int curAPITransactionID = 0;
-            string output = "";
-            vptSessionClass.SyncActivateStr(0, "SignalDbgEnterDbgMode", ref output, 10000, 0);
-            vptSessionClass.AsyncActivateStr(0, "SignalDbgStatus " + startupBusySignal.SignalIndex, 10000, ref curAPITransactionID, 0, 0);
-            TxnIDs[CurStep] = curAPITransactionID;
-        }
+        #region Step 14 - Push VTZ Files
 
         List<string> vtzIPAddresses = new List<string>();
         int vtzIndex = 0;
@@ -1584,10 +1808,8 @@ namespace DMPSMassDeploymentTool
                 return false;
             }
 
-            
-
             // Get the object used to communicate with the server.
-            FtpWebRequest request = (FtpWebRequest)WebRequest.Create("ftp://" + ipAddress  + "/Display/" + Path.GetFileName(NewVTZFileName));
+            FtpWebRequest request = (FtpWebRequest)WebRequest.Create("ftp://" + ipAddress + "/Display/" + Path.GetFileName(NewVTZFileName));
             request.Method = WebRequestMethods.Ftp.UploadFile;
 
             // Copy the contents of the file to the request stream.
@@ -1612,9 +1834,8 @@ namespace DMPSMassDeploymentTool
             ftpStream.Write(test, 0, test.Length);
             ftpStream.Close();
 
-            return true;            
+            return true;
         }
-
 
         //public void SendNewVTZFiles()
         //{
@@ -1725,5 +1946,7 @@ namespace DMPSMassDeploymentTool
         //        vtzClass.SyncActivateStr(0, "ProductGetInfo", output, 10000, 1);
         //    }
         //}
+
+        #endregion
     }
 }

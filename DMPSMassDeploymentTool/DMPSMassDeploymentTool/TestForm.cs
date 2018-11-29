@@ -28,8 +28,11 @@ namespace DMPSMassDeploymentTool
 
         private void Sig_OnComplete(object sender, List<DeployDMPS.CrestronSignal> e)
         {
+            string s = "";
             foreach (var x in e)
-                textBox1.Invoke((Action)(() => textBox1.Text += x.SignalIndex + " = " + x.SignalValue + "\r\n"));
+                s += x.SignalIndex + " = " + x.SignalValue + "\r\n";
+
+            textBox1.Invoke((Action)(() => textBox1.Text += s));
 
             MessageBox.Show("Done!");
         }
