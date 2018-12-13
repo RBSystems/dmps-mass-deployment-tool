@@ -61,6 +61,13 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="ResizeableConrol.cs" />
+    <Compile Include="SingleDMPSManualDeploy.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SingleDMPSManualDeploy.Designer.cs">
+      <DependentUpon>SingleDMPSManualDeploy.cs</DependentUpon>
+    </Compile>
     <Compile Include="TelnetGetDMPSSignals.cs" />
     <Compile Include="TelnetVTZ.cs" />
     <Compile Include="Program.cs" />
@@ -92,9 +99,18 @@
     <EmbeddedResource Include="RunningForm.resx">
       <DependentUpon>RunningForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="SingleDMPSManualDeploy.resx">
+      <DependentUpon>SingleDMPSManualDeploy.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="TestForm.resx">
       <DependentUpon>TestForm.cs</DependentUpon>
     </EmbeddedResource>
+    <None Include="elkQuery3.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="elkQuery2.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="elkQuery.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

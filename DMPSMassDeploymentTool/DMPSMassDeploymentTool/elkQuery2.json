@@ -1,0 +1,13 @@
+﻿{
+  "query": {
+    "wildcard": {
+      "target-device.deviceID": "*CP*"
+    }
+  },
+  "aggs": {
+    "devices": {
+      "terms": { "field": "target-device.deviceID" }
+    }
+  },
+  "size": 0
+}

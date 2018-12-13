@@ -21,8 +21,6 @@ namespace DMPSMassDeploymentTool
         public Form1()
         {
             InitializeComponent();
-
-        
         }        
         
         private void browseSPZfileButton_Click(object sender, EventArgs e)
@@ -49,29 +47,17 @@ namespace DMPSMassDeploymentTool
 
         private void loadListFromELKButton_Click(object sender, EventArgs e)
         {
+            //get the old ones
             string elkURL = ConfigurationManager.AppSettings["ELKURL"];
             string elkSystemsQueryFileName = ConfigurationManager.AppSettings["ELKSystemsQueryFileName"];
 
-            var httpWebRequest = (HttpWebRequest)WebRequest.Create(elkURL);
-            httpWebRequest.ContentType = "application/json";
-            httpWebRequest.Method = "POST";
-
-            using (var streamWriter = new StreamWriter(httpWebRequest.GetRequestStream()))
-            {
-                streamWriter.Write(System.IO.File.ReadAllText(elkSystemsQueryFileName));
-            }
-
-            var httpResponse = (HttpWebResponse)httpWebRequest.GetResponse();
-            string result = "";
-            using (var streamReader = new StreamReader(httpResponse.GetResponseStream()))
-            {
-                result = streamReader.ReadToEnd();
-            }
-
+            string result = PostJsonGetData(elkURL, System.IO.File.ReadAllText(elkSystemsQueryFileName));
+            
             var jObject = JObject.Parse(result);
             var deviceList = jObject.SelectTokens("$..device");
 
             innerDMPSList.Clear();
+
             foreach (var device in deviceList)
             {
                 string h = device["hostname"].Value<string>();
@@ -82,12 +68,65 @@ namespace DMPSMassDeploymentTool
                     innerDMPSList.Add(new DMPSAddress()
                     {
                         hostName = h,
-                        ipAddress = ip
+                        ipAddress = ip,
+                        source = "O"
                     });
                 }
             }
 
+
+            //get the new ones
+            string elkURL2 = ConfigurationManager.AppSettings["ELKURL2"];
+            string elkSystemsQueryFileName2 = ConfigurationManager.AppSettings["ELKSystemsQueryFileName2"];
+            string elkSystemsQueryFileName3 = ConfigurationManager.AppSettings["ELKSystemsQueryFileName3"];
+
+            string result2 = PostJsonGetData(elkURL2, System.IO.File.ReadAllText(elkSystemsQueryFileName2));
+
+            var jObject2 = JObject.Parse(result2);
+
+            var deviceList2 = jObject2.SelectTokens("$.aggregations.devices.buckets..key").ToList().Select(one => one.Value<string>()).ToList();
+            var deviceData2 = jObject2.SelectTokens("$.hits.hits.._source.data").ToList().Select(one => one.Value<string>()).ToList();
+
+            foreach (var device in deviceList2)
+            {
+                var data = deviceData2.Find(one => one.StartsWith("EVENT~" + device));
+                if (data == null)
+                {                    
+                    string result3 = PostJsonGetData(elkURL2, System.IO.File.ReadAllText(elkSystemsQueryFileName3).Replace("$HOSTNAME$", device));
+                    var jObject3 = JObject.Parse(result3);
+                    data = jObject3.SelectToken("$.hits.hits.._source.data").Value<string>();
+                }
+
+                innerDMPSList.Add(new DMPSAddress()
+                {
+                    hostName = device,
+                    ipAddress = data.Split(new char[] { '~' })[2],
+                    source = "N"
+                });
+            }
+            
             FilterDMPSList();
+        }
+
+        private string PostJsonGetData(string url, string json)
+        {
+            var httpWebRequest2 = (HttpWebRequest)WebRequest.Create(url);
+            httpWebRequest2.ContentType = "application/json";
+            httpWebRequest2.Method = "POST";
+
+            using (var streamWriter = new StreamWriter(httpWebRequest2.GetRequestStream()))
+            {
+                streamWriter.Write(json);
+            }
+
+            var httpResponse2 = (HttpWebResponse)httpWebRequest2.GetResponse();
+            string result2 = "";
+            using (var streamReader = new StreamReader(httpResponse2.GetResponseStream()))
+            {
+                result2 = streamReader.ReadToEnd();
+            }
+
+            return result2;
         }
 
         private void FilterDMPSList()
@@ -109,9 +148,10 @@ namespace DMPSMassDeploymentTool
         {
             public string hostName { get; set; }
             public string ipAddress { get; set; }
+            public string source { get; set; }
             public override string ToString()
             {
-                return hostName + " (" + ipAddress + ")";
+                return hostName + " (" + ipAddress + ") [" + source + "]";
             }
         }
 
@@ -146,46 +186,28 @@ namespace DMPSMassDeploymentTool
 
                     foreach (var checkedItem in dmpsList.CheckedItems)
                     {
-                        //ToUpdateList.Add(checkedItem as DMPSAddress);
                         var thisDMPS = checkedItem as DMPSAddress;
-                        //Thread thread = new Thread(() =>
-                        //{
-                            DeployDMPS deploy = new DeployDMPS(thisDMPS.hostName, thisDMPS.ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
-                            deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
-                            deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
-                            deploy.StartDeployment(this);
 
-                            //RunningForm form = new RunningForm();
-                            //this.Invoke((MethodInvoker)delegate { form.Show(); });
+                        SingleDMPSManualDeploy dep = new SingleDMPSManualDeploy();
+                        dep.DMPSHost = thisDMPS.hostName;
+                        dep.DMPSIPAddress = thisDMPS.ipAddress;
+                        dep.SPZFileLocation = spzFileLocation.Text;
+                        dep.VTZFileLocation = vtzFileLocation.Text;
+                        ResizeableControl rc = new ResizeableControl(dep);
+                        flowLayoutPanel1.Controls.Add(dep);
 
-                            //DateTime test = DateTime.Now.AddSeconds(5);
-                            //while (DateTime.Now < test) ;
-                        //});
+                        /*
+                        DeployDMPS deploy = new DeployDMPS(thisDMPS.hostName, thisDMPS.ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
+                        deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
+                        deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
+                        deploy.StartDeployment(this);                        
+                        */
 
-                        //WorkerThreads.Add(thread);
-                        //thread.Start();
+
                     }
 
-                    //CurUpdateIndex = -1;
-
-                    //UpdateNextDMPS();                    
+                    tabControl1.SelectedIndex = 1;
                 }
-            }
-        }
-
-        public void UpdateNextDMPS()
-        {
-            CurUpdateIndex++;
-            if (CurUpdateIndex == ToUpdateList.Count)
-            {
-                MessageBox.Show("All DMPS units complete!");
-            }
-            else
-            {
-                DeployDMPS deploy = new DeployDMPS(ToUpdateList[CurUpdateIndex].hostName, ToUpdateList[CurUpdateIndex].ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
-                deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
-                deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
-                //deploy.StartDeployment();
             }
         }
 
@@ -200,47 +222,6 @@ namespace DMPSMassDeploymentTool
         private void Deploy_OnDMPSDeployedSuccessfully(string message)
         {
             //UpdateNextDMPS();
-        }
-
-        RunningForm runnerForm;
-
-        VPTCOMSERVERLib.VptSessionClass cls;
-        private void button1_Click(object sender, EventArgs e)
-        {
-            cls = new VPTCOMSERVERLib.VptSessionClass();
-            cls.OnSessionReady += Cls_OnSessionReady;
-            cls.OnTaskProgress += Cls_OnTaskProgress;
-            cls.OnTaskComplete += Cls_OnTaskComplete;
-            cls.OnActivateStrComplete += Cls_OnActivateStrComplete;
-            cls.OnEvent += Cls_OnEvent;
-            cls.OpenSession("auto 10.66.9.110", "10.66.9.110");
-        }
-
-        private void Cls_OnEvent(int nTransactionID, [System.Runtime.InteropServices.ComAliasName("VPTCOMSERVERLib.EVptEventType")] VPTCOMSERVERLib.EVptEventType nEventType, int lParam1, int lParam2, string pszwParam)
-        {
-            int x = 1;
-        }
-
-        private void Cls_OnTaskComplete(int nTransactionID, byte bSuccess)
-        {
-            int x = 1;
-        }
-
-        private void Cls_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
-        {
-            
-            int x = 1;
-        }
-
-        private void Cls_OnSessionReady()
-        {
-            int nTxnID = 0;
-            cls.AsyncActivateStr(0, @"SignalDbgStatus 4625", 10000, ref nTxnID, 0, 0);
-        }
-
-        private void Cls_OnTaskProgress(int nTransactionID, int nPercentageDone, string pszwProgressDescription, int lParam)
-        {
-            int a = 1;
         }
         
 

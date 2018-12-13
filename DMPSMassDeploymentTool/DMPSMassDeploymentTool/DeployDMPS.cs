@@ -958,6 +958,12 @@ namespace DMPSMassDeploymentTool
             }
             else
             {
+                if (MessageBox.Show($"{e.Count} signals returned.  Continue?", "", MessageBoxButtons.YesNo) != DialogResult.Yes)
+                {
+                    GetCurrentSignals();
+                    return;
+                }
+
                 foreach (var signal in e)
                 {
                     var sig = signalList.Find(one => one.SignalIndex == signal.SignalIndex);
@@ -1096,6 +1102,7 @@ namespace DMPSMassDeploymentTool
                 CurStep = DeploymentStep.WaitForSystemToLoad;
                 Log("---Waiting for system to load - 2 minutes---");
                 System.Threading.Thread.Sleep(120000);
+                firstReboot = false;
             }
             else
             {
@@ -1441,13 +1448,13 @@ namespace DMPSMassDeploymentTool
             }
             else
             {
-                signalIndexToSet++;
+                signalIndexToSet++;                
                 var command = signalsToSet[signalIndexToSet];
 
                 //set it up so we know to check it
                 CheckSetSignal = true;
 
-                Log("Setting " + command.Signal.SignalName + " [" + command.CommandToSet + "]");
+                Log("Setting " + command.Signal.SignalName + " [" + command.CommandToSet + "] - index [" + signalIndexToSet + "] out of [" + signalsToSet.Count + "]");
                 int curAPITransactionID = 0;
                 vptSessionClass.AsyncActivateStr(0, command.CommandToSet, 10000, ref curAPITransactionID, 0, 0);
                 TxnIDs[CurStep] = curAPITransactionID;
@@ -1494,11 +1501,12 @@ namespace DMPSMassDeploymentTool
 
         public void WaitForSystemToLoad2()
         {            
-            if (firstReboot)
+            if (secondTimeFirstReboot)
             {
                 CurStep = DeploymentStep.WaitForSystemToLoad2;
                 Log("---Waiting for system to load - 2 minutes---");
                 System.Threading.Thread.Sleep(120000);
+                secondTimeFirstReboot = false;
             }
             else
             {
