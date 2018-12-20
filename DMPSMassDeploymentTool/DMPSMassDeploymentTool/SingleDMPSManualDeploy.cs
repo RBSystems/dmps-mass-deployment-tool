@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -16,8 +17,10 @@ namespace DMPSMassDeploymentTool
         {
             InitializeComponent();
         }
-        
+
         VPTCOMSERVERLib.VptSessionClass vptSessionClass { get; set; }
+
+        public string TempDirectory { get; set; }
 
         private string dmpsHost = "";
         public string DMPSHost
@@ -27,6 +30,8 @@ namespace DMPSMassDeploymentTool
             {
                 dmpsHost = value;
                 dmpsHostLabel.Text = dmpsHost;
+                TempDirectory = System.IO.Path.Combine(System.Configuration.ConfigurationManager.AppSettings["DMPSDeploymentLocation"],
+                   this.dmpsIP + "-" + this.dmpsHost);
             }
         }
 
@@ -38,6 +43,8 @@ namespace DMPSMassDeploymentTool
             {
                 dmpsIP = value;
                 dmpsIPLabel.Text = dmpsIP;
+                TempDirectory = System.IO.Path.Combine(System.Configuration.ConfigurationManager.AppSettings["DMPSDeploymentLocation"],
+                   this.dmpsIP + "-" + this.dmpsHost);
             }
         }
 
@@ -55,12 +62,10 @@ namespace DMPSMassDeploymentTool
             //create the COM API object
             vptSessionClass = new VPTCOMSERVERLib.VptSessionClass();
 
-            //listen to events
+            //listen to global events for logging
             vptSessionClass.OnActivateComplete += VptSessionClass_OnActivateComplete;
-            vptSessionClass.OnActivateStrComplete += VptSessionClass_OnActivateStrComplete; 
             vptSessionClass.OnAsyncActivateStart += VptSessionClass_OnAsyncActivateStart;
-            vptSessionClass.OnDebugString += VptSessionClass_OnDebugString;
-            vptSessionClass.OnEvent += VptSessionClass_OnEvent;
+            vptSessionClass.OnDebugString += VptSessionClass_OnDebugString;            
             vptSessionClass.OnFileXferBatchFinish += VptSessionClass_OnFileXferBatchFinish;
             vptSessionClass.OnFileXferBatchStart += VptSessionClass_OnFileXferBatchStart;
             vptSessionClass.OnFileXferFileStart += VptSessionClass_OnFileXferFileStart;
@@ -70,6 +75,33 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskStart += VptSessionClass_OnTaskStart;
             vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
+        }
+
+        bool running = false;
+        public bool IsRunning
+        {
+            get { return running; }
+            set
+            {
+                running = value;
+                runningBar.Value = running ? 100 : 0;
+            }
+        }
+
+        public void StartIfOnStep(int Step)
+        {
+            if (Step == 1 && nextStepBox.SelectedIndex == 0 && !IsRunning)
+            {
+                Step1Connect();
+            }
+            else if (Step == 2 && nextStepBox.SelectedIndex == 1 && !IsRunning)
+            {
+                Step2CollectSignals();
+            }
+            else if (Step == 3 && nextStepBox.SelectedIndex == 2 && !IsRunning)
+            {
+                Step3SendProgram();
+            }
         }
 
         private void VptSessionClass_OnFileXferBatchStart(int nTransactionID, string pszwDescription, int nTotalFiles, int nTotalSize)
@@ -143,20 +175,6 @@ namespace DMPSMassDeploymentTool
                 "pszwRemoteFilename:[" + pszwRemoteFilename + "], nSize:[" + nSize + "], " +
                 "bSending:[" + bSending + "], pszwProtocolName :[" + pszwProtocolName + "]");
         }
-
-        
-        
-        private void VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
-        {
-            
-        }
-
-        private void VptSessionClass_OnEvent(int nTransactionID,
-            [System.Runtime.InteropServices.ComAliasName("VPTCOMSERVERLib.EVptEventType")] VPTCOMSERVERLib.EVptEventType nEventType,
-            int lParam1, int lParam2, string pszwParam)
-        {
-            
-        }
         
         private void VptSessionClass_OnDebugString(int nTransactionID, int nCategory, string pszwData)
         {
@@ -192,8 +210,17 @@ namespace DMPSMassDeploymentTool
                 //reset counter to zero
                 numberOfCurrentSignalsCollectedLabel.Text = "0";
             }
+            else if (nextStepBox.SelectedIndex == 2)
+            {
+                //set up defaults
+                programFileToBePushedLabel.Text = this.SPZFileLocation;
+                
+                //load signals from files - if none, then don't let them do it
+                
+            }
         }
 
+        string logPath = "";
         void Log(string m)
         {
             if (this.logBox.InvokeRequired)
@@ -205,13 +232,14 @@ namespace DMPSMassDeploymentTool
                 logBox.Items.Insert(0, (DateTime.Now.ToString("hh:mm:ss.fff") + " - " + m));
             }
 
-            string logPath = System.IO.Path.Combine(System.Configuration.ConfigurationManager.AppSettings["DMPSDeploymentLocation"],
-                    this.dmpsIP + "-" + this.dmpsHost,
-                    System.Configuration.ConfigurationManager.AppSettings["LogFileName"]);
-
-            if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(logPath)))
+            if (logPath == "")
             {
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(logPath));
+                logPath = System.IO.Path.Combine(TempDirectory, System.Configuration.ConfigurationManager.AppSettings["LogFileName"]);
+
+                if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(logPath)))
+                {
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(logPath));
+                }
             }
 
             System.IO.File.AppendAllLines(logPath, m.Split(new char[] { '\n' }));
@@ -225,6 +253,12 @@ namespace DMPSMassDeploymentTool
                 a();
         }
 
+        public Dictionary<string, int> TxnIDs = new Dictionary<string, int>();
+        
+        List<CrestronSignal> signalList = new List<CrestronSignal>();
+
+        List<CrestronSignal> signalListAfterDeployment = new List<CrestronSignal>();
+
 
         #region Step 1
 
@@ -233,6 +267,8 @@ namespace DMPSMassDeploymentTool
         {
             if (vptSessionClass == null || vptSessionClass.IsSessionReady(1000) != 1)
             {
+                IsRunning = true;
+
                 if (vptSessionClass != null)
                     vptSessionClass.CloseSession();
 
@@ -247,9 +283,10 @@ namespace DMPSMassDeploymentTool
                 {
                     System.Threading.Thread.Sleep(100);
                 }
-                
+
                 if (!connected)
                 {
+                    IsRunning = false;
                     errorLabel.Text = "Error connecting - try again";
                     this.BackColor = Color.MistyRose;
                 }
@@ -258,6 +295,13 @@ namespace DMPSMassDeploymentTool
 
         private void step1ConnectButton_Click(object sender, EventArgs e)
         {
+            Step1Connect();
+        }
+
+        private void Step1Connect()
+        {
+            Log("---------------------");
+            Log("Step 1 - Connecting to DMPS");
             EnsureConnection();
         }
 
@@ -266,7 +310,9 @@ namespace DMPSMassDeploymentTool
             connected = true;
             Log("API On Session Ready");
 
-            Go(() => {
+            Go(() =>
+            {
+                IsRunning = false;
                 errorLabel.Text = "";
                 step1NextStepButton.Enabled = true;
                 this.BackColor = Color.PaleGreen;
@@ -283,6 +329,11 @@ namespace DMPSMassDeploymentTool
         #region Step 2
         private void step2CollectSignalsButton_Click(object sender, EventArgs e)
         {
+            Step2CollectSignals();
+        }
+
+        private void Step2CollectSignals()
+        {
             if (System.IO.File.Exists(currentSignalSaveLocationLabel.Text))
             {
                 if (MessageBox.Show("There is already a current signal file.  This will overwrite that.  Continue?", "Overwite?", MessageBoxButtons.YesNoCancel) != DialogResult.Yes)
@@ -291,19 +342,218 @@ namespace DMPSMassDeploymentTool
                 }
             }
 
-            //first, we have to go get the ZIG file and parse it
+            this.errorLabel.Text = "";
+            this.BackColor = SystemColors.Control;
 
-
-
-
-            //then, we can go and get the signals from the DMPS
-            TelnetGetDMPSSignals sigFinder = new TelnetGetDMPSSignals();
-            sigFinder.OnLog += SigFinder_OnLog; ;
-            sigFinder.OnComplete += SigFinder_OnComplete; ;
-            sigFinder.StartGetDMPSSignals(this.DMPSIPAddress);
+            //first, we have to go get the ZIG file and parse it                        
+            RetrieveZIGFile();
         }
 
-        private void SigFinder_OnComplete(object sender, List<DeployDMPS.CrestronSignal> e)
+        private void RetrieveZIGFile()
+        {
+            Log("---------------------");
+            Log("Step 2 - Retrieving ZIG file");
+
+            if (System.IO.File.Exists(TempDirectory + "TEC HD.zig"))
+                System.IO.File.Delete(TempDirectory + "TEC HD.zig");
+
+            string outputs = "";
+            int curAPITransactionID = 0;
+
+            vptSessionClass.OnActivateStrComplete += Step2ZigFile_VptSessionClass_OnActivateStrComplete;
+
+            vptSessionClass.AsyncActivateStr(0, @"FileXferGet ""\SIMPL\TEC HD.zig"" """ + TempDirectory + "TEC HD.zig\"", 10000, ref curAPITransactionID, 0, 0);
+
+            TxnIDs["Step 2"] = curAPITransactionID;
+
+            Log("\tTransaction ID:[" + curAPITransactionID + "]");
+            Log("\tFileXferGet Output:[" + outputs + "]");
+        }
+
+        private void Step2ZigFile_VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
+        {
+            vptSessionClass.OnActivateStrComplete -= Step2ZigFile_VptSessionClass_OnActivateStrComplete;
+
+            Log("\tAPI On Activate Str Complete - nTransactionID:[" + nTransactionID + "], nAbilityCode:[" + nAbilityCode + "], bSuccess:[" + bSuccess + "], " +
+               "pszOutputs:[" + pszOutputs + "], nUserPassBack:[" + nUserPassBack + "]");
+
+            if (bSuccess == 0)
+            {
+                Log("ZIG retrieval failed - try again");
+                errorLabel.Text = "ZIG retrieval failed - try again";
+                this.BackColor = Color.MistyRose;
+            }
+            else
+            {
+                Log("ZIG file retrieved.  Unzipping and parsing");
+                UnzipAndParseSig();
+                ParseNewSigFile();
+
+                //then, we can go and get the signals from the DMPS
+                TelnetGetDMPSSignals sigFinder = new TelnetGetDMPSSignals();
+                sigFinder.OnLog += SigFinder_OnLog; ;
+                sigFinder.OnComplete += SigFinder_OnComplete; 
+                sigFinder.StartGetDMPSSignals(this.DMPSIPAddress);
+            }
+        }
+
+        private void UnzipAndParseSig()
+        {
+            Log("---------------");
+            Log("Unzipping and parsing SIG file");
+
+            if (System.IO.Directory.Exists(TempDirectory + @"TEC HD\"))
+                System.IO.Directory.Delete(TempDirectory + @"TEC HD\", true);
+
+            System.IO.Compression.ZipFile.ExtractToDirectory(TempDirectory + @"TEC HD.zig", TempDirectory + @"TEC HD\");
+
+            byte[] sigFile = System.IO.File.ReadAllBytes(TempDirectory + @"TEC HD\TEC HD.sig");
+
+            signalList.Clear();
+
+            string signalFileType = "";
+            int index = 0;
+
+            while (true)
+            {
+                signalFileType += (char)(sigFile[index]);
+                index++;
+                if (signalFileType.EndsWith("]")) break;
+            }
+
+            if (signalFileType != "[RLSIG0001]" && signalFileType != "[LOGOSSIG001.000]")
+            {
+                Log("Unknown sig file type");
+            }
+
+            Log("Signal file type: " + signalFileType);
+
+            while (index < sigFile.Length)
+            {
+                var length = BitConverter.ToUInt16(sigFile, index) - 8;
+                index = index + 2;
+                string signalName = "";
+                uint signalIndex = 0;
+                byte signalType = 0;
+                byte signalFlags = 0;
+
+                if (signalFileType == "[RLSIG0001]")
+                {
+                    signalName = ASCIIEncoding.ASCII.GetString(sigFile, index, length);
+                }
+                else if (signalFileType == "[LOGOSSIG001.000]")
+                {
+                    signalName = Encoding.Unicode.GetString(sigFile, index, length);
+                }
+
+                index += length;
+
+                if (!string.IsNullOrEmpty(signalName))
+                {
+                    signalIndex = BitConverter.ToUInt32(sigFile, index);
+                    index += 4;
+                }
+
+                signalType = sigFile[index];
+                index++;
+                signalFlags = sigFile[index];
+                index++;
+
+                var x = new CrestronSignal() { SignalName = signalName, SignalIndex = signalIndex, SignalFlags = signalFlags, SignalType = signalType };
+                //Log("\t" + x.ToString());
+                signalList.Add(x);
+
+                if (signalList.Count % 25 == 0)
+                    Log("\t" + signalList.Count.ToString() + " signals parsed");
+            }
+
+            //save it
+            var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalList.ToArray());
+
+            if (System.IO.File.Exists(TempDirectory + "OldSignals.json"))
+                System.IO.File.Delete(TempDirectory + "OldSignals.json");
+
+            System.IO.File.WriteAllText(TempDirectory + "OldSignals.json", signalListJson);
+
+            
+        }
+
+        public void ParseNewSigFile()
+        {
+            Log("---------------");
+            Log("Parsing new SIG file");
+
+            string sigFileName = System.IO.Path.ChangeExtension(this.SPZFileLocation, ".sig");
+            byte[] sigFile = System.IO.File.ReadAllBytes(sigFileName);
+
+            signalListAfterDeployment.Clear();
+
+            string signalFileType = "";
+            int index = 0;
+
+            while (true)
+            {
+                signalFileType += (char)(sigFile[index]);
+                index++;
+                if (signalFileType.EndsWith("]")) break;
+            }
+
+            if (signalFileType != "[RLSIG0001]" && signalFileType != "[LOGOSSIG001.000]")
+            {
+                Log("Unknown sig file type");
+            }
+
+            Log("Signal file type: " + signalFileType);
+
+            while (index < sigFile.Length)
+            {
+                var length = BitConverter.ToUInt16(sigFile, index) - 8;
+                index = index + 2;
+                string signalName = "";
+                uint signalIndex = 0;
+                byte signalType = 0;
+                byte signalFlags = 0;
+
+                if (signalFileType == "[RLSIG0001]")
+                {
+                    signalName = ASCIIEncoding.ASCII.GetString(sigFile, index, length);
+                }
+                else if (signalFileType == "[LOGOSSIG001.000]")
+                {
+                    signalName = Encoding.Unicode.GetString(sigFile, index, length);
+                }
+
+                index += length;
+
+                if (!string.IsNullOrEmpty(signalName))
+                {
+                    signalIndex = BitConverter.ToUInt32(sigFile, index);
+                    index += 4;
+                }
+
+                signalType = sigFile[index];
+                index++;
+                signalFlags = sigFile[index];
+                index++;
+
+                var x = new CrestronSignal() { SignalName = signalName, SignalIndex = signalIndex, SignalFlags = signalFlags, SignalType = signalType };
+                //Log("\t" + x.ToString());
+                signalListAfterDeployment.Add(x);
+
+                if (signalListAfterDeployment.Count % 25 == 0)
+                    Log("\t" + signalListAfterDeployment.Count.ToString() + " signals parsed");
+            }
+
+            //save it
+            var signalListJson = Newtonsoft.Json.JsonConvert.SerializeObject(signalListAfterDeployment.ToArray());
+
+            if (System.IO.File.Exists(TempDirectory + "NewSignals.json"))
+                System.IO.File.Delete(TempDirectory + "NewSignals.json");
+
+            System.IO.File.WriteAllText(TempDirectory + "NewSignals.json", signalListJson);
+        }
+
+        private void SigFinder_OnComplete(object sender, List<CrestronSignal> e)
         {
             if (e == null)
             {
@@ -313,7 +563,7 @@ namespace DMPSMassDeploymentTool
             else
             {
                 e.Sort((a, b) => (a.SignalName ?? "").CompareTo(b.SignalName ?? ""));
-                
+
                 if (System.IO.File.Exists(currentSignalSaveLocationLabel.Text))
                     System.IO.File.Delete(currentSignalSaveLocationLabel.Text);
 
@@ -342,13 +592,53 @@ namespace DMPSMassDeploymentTool
         {
             Log(e);
         }
-        
+
         private void step2NextStepButton_Click(object sender, EventArgs e)
         {
             nextStepBox.SelectedIndex = 2;
         }
 
         #endregion
+
+        #region Step 3
+
+        private void step3PushFile_Click(object sender, EventArgs e)
+        {
+            Step3SendProgram();
+        }
+
+        private void Step3SendProgram()
+        {
+            Log("---------------");
+            Log("Sending new SPZ file....");
+
+            int curAPITransactionID = 0;
+            vptSessionClass.OnActivateStrComplete += Step3_VptSessionClass_OnActivateStrComplete;
+            vptSessionClass.AsyncActivateStr(0, "ProgramSend \"" + this.SPZFileLocation + "\"", 10000, curAPITransactionID, 0, 0);            
+        }
+
+        private void Step3_VptSessionClass_OnActivateStrComplete(int nTransactionID, int nAbilityCode, byte bSuccess, string pszOutputs, int nUserPassBack)
+        {
+            vptSessionClass.OnActivateStrComplete -= Step3_VptSessionClass_OnActivateStrComplete;
+            if (bSuccess == 0)
+            {
+                Log("Send file failed - try again");
+                errorLabel.Text = "ZIG retrieval failed - try again";
+                this.BackColor = Color.MistyRose;
+            }
+            else
+            {
+                Step3SendZIG();
+            }
+        }
+
+        private void Step3SendZIG()
+        {
+
+        }
+
+        #endregion
+
 
     }
 }

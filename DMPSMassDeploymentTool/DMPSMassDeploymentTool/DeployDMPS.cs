@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using System.Net.Sockets;
 using System.Net;
 using System.IO;
+using System.Drawing;
 
 namespace DMPSMassDeploymentTool
 {
@@ -97,12 +98,15 @@ namespace DMPSMassDeploymentTool
             }
         }
 
-        public void StartDeployment(Form1 masterForm)
+        public void StartDeployment(Form1 masterForm, Size formSize, Point formTopLeft)
         {
             //create the running form and show it
             logForm = new RunningForm();
-            logForm.DeployDMPS = this;
+            logForm.DeployDMPS = this;            
             logForm.Show();
+            logForm.Top = formTopLeft.Y;
+            logForm.Left = formTopLeft.X;
+            logForm.Size = formSize;
             this.OnStepChanged += logForm.DeployDMPS_OnStepChanged;
 
             Log("Starting Deployment for " + DMPSHostName + " [" + DMPSIPAddress + "]");
@@ -129,6 +133,66 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
 
             logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
+
+            Connect();
+        }
+
+        bool isRepush = false;
+        public void RepushSignals(Form1 masterForm, Size formSize, Point formTopLeft)
+        {
+            isRepush = true;
+
+            //create the running form and show it
+            logForm = new RunningForm();
+            logForm.DeployDMPS = this;
+            logForm.Show();
+            logForm.Top = formTopLeft.Y;
+            logForm.Left = formTopLeft.X;
+            logForm.Size = formSize;
+            this.OnStepChanged += logForm.DeployDMPS_OnStepChanged;
+
+            Log("Starting Re-push signals for " + DMPSHostName + " [" + DMPSIPAddress + "]");
+
+            if (!File.Exists(Path.Combine(TempDirectory, "UnableToSetSignals.txt")) ||
+                !File.Exists(Path.Combine(TempDirectory, "OldSignalsComplete.json")) ||
+                !File.Exists(Path.Combine(TempDirectory, "PushDMPSFilesComplete.txt"))
+                )
+            {
+                Log("Unable to re-push signals, one or more files missing");
+            }
+
+            string[] UnableToSetSignals = File.ReadAllLines(Path.Combine(TempDirectory, "UnableToSetSignals.txt"));
+
+            if (MessageBox.Show("Last time, " + this.DMPSHostName + " was unable to push " + UnableToSetSignals.Length + " signals.  Continue with re-push?", "", MessageBoxButtons.YesNoCancel) != DialogResult.Yes)
+            {
+                logForm.Close();
+                return;
+            }
+
+            CurStep = DeploymentStep.Connect;
+            
+            LoadOldSignalsCompleteFromFile();
+
+            //create the COM API object
+            vptSessionClass = new VPTCOMSERVERLib.VptSessionClass();
+
+            //listen to events
+            vptSessionClass.OnActivateComplete += VptSessionClass_OnActivateComplete;
+            vptSessionClass.OnActivateStrComplete += VptSessionClass_OnActivateStrComplete;
+            vptSessionClass.OnAsyncActivateStart += VptSessionClass_OnAsyncActivateStart;
+            vptSessionClass.OnDebugString += VptSessionClass_OnDebugString;
+            vptSessionClass.OnEvent += VptSessionClass_OnEvent;
+            vptSessionClass.OnFileXferBatchFinish += VptSessionClass_OnFileXferBatchFinish;
+            vptSessionClass.OnFileXferBatchStart += VptSessionClass_OnFileXferBatchStart;
+            vptSessionClass.OnFileXferFileStart += VptSessionClass_OnFileXferFileStart;
+            vptSessionClass.OnFileXferFileProgress += VptSessionClass_OnFileXferFileProgress;
+            vptSessionClass.OnFileXferFileFinish += VptSessionClass_OnFileXferFileFinish;
+            vptSessionClass.OnSessionReady += VptSessionClass_OnSessionReady;
+            vptSessionClass.OnTaskStart += VptSessionClass_OnTaskStart;
+            vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
+            vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
+
+            logForm.targetDMPSGroupBox.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
 
             Connect();
         }
@@ -421,7 +485,7 @@ namespace DMPSMassDeploymentTool
                     signal.SignalValue = pszwParam;
                 }
             }
-            else if (CurStep == DeploymentStep.GetSignalsAfterSet && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState && TxnIDs[CurStep] == nTransactionID)
+            else if (CurStep == DeploymentStep.GetSignalsAfterSet && nEventType == VPTCOMSERVERLib.EVptEventType.EVptEventType_SignalState && TxnIDs.ContainsKey(CurStep) && TxnIDs[CurStep] == nTransactionID)
             {
                 var signal = signalListAfterSet.Find(one => one.SignalIndex == lParam1);
                 if (signal != null)
@@ -481,11 +545,11 @@ namespace DMPSMassDeploymentTool
 
                         retryCount[command.Signal.SignalIndex]++;
 
-                        if (retryCount[command.Signal.SignalIndex] < 10)
+                        if (retryCount[command.Signal.SignalIndex] < 3)
                             signalIndexToSet--;
                         else
                         {
-                            Log("Retry count exceeded 10...continuing on...");
+                            Log("Retry count exceeded 3...continuing on...");
                             SignalsUnableToSet.Add(command.Signal.SignalName + ", index [" + command.Signal.SignalIndex + "], expected value [" + command.ExpectedValue + "]");
                             System.IO.File.WriteAllLines(this.TempDirectory + "UnableToSetSignals.txt", SignalsUnableToSet);
                             command.IsConfirmed = true;
@@ -532,11 +596,11 @@ namespace DMPSMassDeploymentTool
             if (StopProcessing) return;
 
             //determine if we need to resume
-            if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt"))
+            if (System.IO.File.Exists(TempDirectory + "DeploymentComplete.txt") && !isRepush)
             {
                 if (!StartOver()) return;
             }
-            else if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json"))
+            else if (System.IO.File.Exists(TempDirectory + "NewSignalsAfterSetComplete.json") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment - start vtz files?", "",
@@ -551,7 +615,7 @@ namespace DMPSMassDeploymentTool
                     if (!StartOver()) return;
                 }
             }
-            else if (System.IO.File.Exists(TempDirectory + "NewSignalsSet.txt"))
+            else if (System.IO.File.Exists(TempDirectory + "NewSignalsSet.txt") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment -  confirm signals?", "",
@@ -566,7 +630,7 @@ namespace DMPSMassDeploymentTool
                     if (!StartOver()) return;
                 }
             }
-            else if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json"))
+            else if (System.IO.File.Exists(TempDirectory + "NewSignalsComplete.json") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment - set signals?", "",
@@ -581,7 +645,7 @@ namespace DMPSMassDeploymentTool
                     if (!StartOver()) return;
                 }
             }
-            else if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt"))
+            else if (System.IO.File.Exists(TempDirectory + "PushDMPSFilesComplete.txt") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment - get new signals?", "",
@@ -596,7 +660,7 @@ namespace DMPSMassDeploymentTool
                     if (!StartOver()) return;
                 }
             }
-            else if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json"))
+            else if (System.IO.File.Exists(TempDirectory + "OldSignalsComplete.json") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment - push files to DMPS?", "",
@@ -611,7 +675,7 @@ namespace DMPSMassDeploymentTool
                     if (!StartOver()) return;
                 }
             }
-            else if (System.IO.File.Exists(TempDirectory + "NewSignals.json"))
+            else if (System.IO.File.Exists(TempDirectory + "NewSignals.json") && !isRepush)
             {
                 if (MessageBox.Show("DMPS " + DMPSHostName + " / " + DMPSIPAddress +
                         " appears to have stopped in the middle of a deployment.  Resume deployment - get current signals?", "",
@@ -625,6 +689,13 @@ namespace DMPSMassDeploymentTool
                 {
                     if (!StartOver()) return;
                 }
+            }
+            else if (isRepush)
+            {
+                
+                LoadOldSignalsCompleteFromFile();
+                LoadNewSignalsFromFile();
+                CurStep = DeploymentStep.ParseNewSigAndGetCurrentSignals2;                
             }
 
             var step = CurStep;
@@ -902,21 +973,7 @@ namespace DMPSMassDeploymentTool
 
         #region Step 3 - Get Current Signals
 
-        public class CrestronSignal
-        {
-            public string SignalName { get; set; }
-            public uint SignalIndex { get; set; }
-            public byte SignalType { get; set; }
-            public byte SignalFlags { get; set; }
-
-            public override string ToString()
-            {
-                return SignalName + " - [Index: " + SignalIndex + "] [Type: " + SignalType.ToString() + "]";
-            }
-
-            public bool HasSignalValue { get; set; }
-            public string SignalValue { get; set; }
-        }
+      
 
         List<CrestronSignal> signalList = new List<CrestronSignal>();
 
@@ -1488,6 +1545,20 @@ namespace DMPSMassDeploymentTool
             string output = "";
             vptSessionClass.SyncActivateStr(0, "SignalDbgPulseDigital " + signal.SignalIndex + ", 50", ref output, 10000, 0);
 
+            if (isRepush)
+            {
+                Log("Signals have been re-pushed!");
+
+                if (OnDMPSDeployedSuccessfully != null)
+                {
+                    OnDMPSDeployedSuccessfully("DMPS " + DMPSHostName + " / " + DMPSIPAddress + " Signals Re-pushed!");
+                }
+
+                logForm.CloseForm();
+
+                return;
+            }
+
             int curAPITransactionID = 0;
             vptSessionClass.AsyncActivateStr(0, "ProgramRestart", 10000, ref curAPITransactionID, 0, 0);
             TxnIDs[CurStep] = curAPITransactionID;
@@ -1755,6 +1826,8 @@ namespace DMPSMassDeploymentTool
         int vtzIndex = 0;
         public void SendNewVTZFiles()
         {
+            vtzIPAddresses = vtzIPAddresses.Distinct().ToList();
+
             CurStep = DeploymentStep.PushVtzFiles;
             Log("---------------");
             Log("Pushing VTZ files to " + vtzIPAddresses.Count + " devices....");

@@ -6,7 +6,7 @@
   },
   "aggs": {
     "devices": {
-      "terms": { "field": "target-device.deviceID" }
+      "terms": { "field": "target-device.deviceID", "size": "200" }
     }
   },
   "size": 0

@@ -37,20 +37,22 @@
             this.nextStepBox = new System.Windows.Forms.ComboBox();
             this.label3 = new System.Windows.Forms.Label();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.logBox = new System.Windows.Forms.ListBox();
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.step1ConnectButton = new System.Windows.Forms.Button();
             this.step1NextStepButton = new System.Windows.Forms.Button();
             this.label4 = new System.Windows.Forms.Label();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.step2CollectSignalsButton = new System.Windows.Forms.Button();
             this.step2NextStepButton = new System.Windows.Forms.Button();
             this.numberOfCurrentSignalsCollectedLabel = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
             this.currentSignalSaveLocationLabel = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
             this.tabPage3 = new System.Windows.Forms.TabPage();
+            this.step3PushFile = new System.Windows.Forms.Button();
             this.step3NextStepButton = new System.Windows.Forms.Button();
-            this.pushEstimatedSecondsRemainingLabel = new System.Windows.Forms.Label();
-            this.label8 = new System.Windows.Forms.Label();
             this.programFileToBePushedLabel = new System.Windows.Forms.Label();
             this.label10 = new System.Windows.Forms.Label();
             this.tabPage4 = new System.Windows.Forms.TabPage();
@@ -71,9 +73,7 @@
             this.label17 = new System.Windows.Forms.Label();
             this.label18 = new System.Windows.Forms.Label();
             this.errorLabel = new System.Windows.Forms.Label();
-            this.step1ConnectButton = new System.Windows.Forms.Button();
-            this.step2CollectSignalsButton = new System.Windows.Forms.Button();
-            this.logBox = new System.Windows.Forms.ListBox();
+            this.runningBar = new System.Windows.Forms.ProgressBar();
             this.groupBox1.SuspendLayout();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -140,12 +140,21 @@
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.groupBox1.Controls.Add(this.logBox);
-            this.groupBox1.Location = new System.Drawing.Point(6, 214);
+            this.groupBox1.Location = new System.Drawing.Point(6, 242);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(364, 244);
+            this.groupBox1.Size = new System.Drawing.Size(364, 216);
             this.groupBox1.TabIndex = 7;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Log";
+            // 
+            // logBox
+            // 
+            this.logBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.logBox.FormattingEnabled = true;
+            this.logBox.Location = new System.Drawing.Point(3, 16);
+            this.logBox.Name = "logBox";
+            this.logBox.Size = new System.Drawing.Size(358, 197);
+            this.logBox.TabIndex = 0;
             // 
             // tabControl1
             // 
@@ -176,6 +185,16 @@
             this.tabPage1.TabIndex = 0;
             this.tabPage1.Text = "1 - Connect";
             this.tabPage1.UseVisualStyleBackColor = true;
+            // 
+            // step1ConnectButton
+            // 
+            this.step1ConnectButton.Location = new System.Drawing.Point(9, 23);
+            this.step1ConnectButton.Name = "step1ConnectButton";
+            this.step1ConnectButton.Size = new System.Drawing.Size(75, 23);
+            this.step1ConnectButton.TabIndex = 2;
+            this.step1ConnectButton.Text = "Connect";
+            this.step1ConnectButton.UseVisualStyleBackColor = true;
+            this.step1ConnectButton.Click += new System.EventHandler(this.step1ConnectButton_Click);
             // 
             // step1NextStepButton
             // 
@@ -213,6 +232,17 @@
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "2 - Save Signals";
             this.tabPage2.UseVisualStyleBackColor = true;
+            // 
+            // step2CollectSignalsButton
+            // 
+            this.step2CollectSignalsButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.step2CollectSignalsButton.Location = new System.Drawing.Point(6, 107);
+            this.step2CollectSignalsButton.Name = "step2CollectSignalsButton";
+            this.step2CollectSignalsButton.Size = new System.Drawing.Size(75, 23);
+            this.step2CollectSignalsButton.TabIndex = 5;
+            this.step2CollectSignalsButton.Text = "Get Signals";
+            this.step2CollectSignalsButton.UseVisualStyleBackColor = true;
+            this.step2CollectSignalsButton.Click += new System.EventHandler(this.step2CollectSignalsButton_Click);
             // 
             // step2NextStepButton
             // 
@@ -266,9 +296,8 @@
             // 
             // tabPage3
             // 
+            this.tabPage3.Controls.Add(this.step3PushFile);
             this.tabPage3.Controls.Add(this.step3NextStepButton);
-            this.tabPage3.Controls.Add(this.pushEstimatedSecondsRemainingLabel);
-            this.tabPage3.Controls.Add(this.label8);
             this.tabPage3.Controls.Add(this.programFileToBePushedLabel);
             this.tabPage3.Controls.Add(this.label10);
             this.tabPage3.Location = new System.Drawing.Point(4, 19);
@@ -278,6 +307,18 @@
             this.tabPage3.TabIndex = 2;
             this.tabPage3.Text = "3 - Push";
             this.tabPage3.UseVisualStyleBackColor = true;
+            // 
+            // step3PushFile
+            // 
+            this.step3PushFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.step3PushFile.Enabled = false;
+            this.step3PushFile.Location = new System.Drawing.Point(6, 104);
+            this.step3PushFile.Name = "step3PushFile";
+            this.step3PushFile.Size = new System.Drawing.Size(130, 23);
+            this.step3PushFile.TabIndex = 9;
+            this.step3PushFile.Text = "Push Program";
+            this.step3PushFile.UseVisualStyleBackColor = true;
+            this.step3PushFile.Click += new System.EventHandler(this.step3PushFile_Click);
             // 
             // step3NextStepButton
             // 
@@ -289,25 +330,6 @@
             this.step3NextStepButton.TabIndex = 8;
             this.step3NextStepButton.Text = "Next Step";
             this.step3NextStepButton.UseVisualStyleBackColor = true;
-            // 
-            // pushEstimatedSecondsRemainingLabel
-            // 
-            this.pushEstimatedSecondsRemainingLabel.AutoSize = true;
-            this.pushEstimatedSecondsRemainingLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.pushEstimatedSecondsRemainingLabel.Location = new System.Drawing.Point(6, 99);
-            this.pushEstimatedSecondsRemainingLabel.Name = "pushEstimatedSecondsRemainingLabel";
-            this.pushEstimatedSecondsRemainingLabel.Size = new System.Drawing.Size(14, 13);
-            this.pushEstimatedSecondsRemainingLabel.TabIndex = 7;
-            this.pushEstimatedSecondsRemainingLabel.Text = "0";
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(6, 79);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(154, 13);
-            this.label8.TabIndex = 6;
-            this.label8.Text = "Estimated Seconds Remaining:";
             // 
             // programFileToBePushedLabel
             // 
@@ -522,35 +544,15 @@
             this.errorLabel.TabIndex = 9;
             this.errorLabel.Text = "If there is an error, we\'ll write it here";
             // 
-            // step1ConnectButton
+            // runningBar
             // 
-            this.step1ConnectButton.Location = new System.Drawing.Point(9, 23);
-            this.step1ConnectButton.Name = "step1ConnectButton";
-            this.step1ConnectButton.Size = new System.Drawing.Size(75, 23);
-            this.step1ConnectButton.TabIndex = 2;
-            this.step1ConnectButton.Text = "Connect";
-            this.step1ConnectButton.UseVisualStyleBackColor = true;
-            this.step1ConnectButton.Click += new System.EventHandler(this.step1ConnectButton_Click);
-            // 
-            // step2CollectSignalsButton
-            // 
-            this.step2CollectSignalsButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.step2CollectSignalsButton.Location = new System.Drawing.Point(6, 107);
-            this.step2CollectSignalsButton.Name = "step2CollectSignalsButton";
-            this.step2CollectSignalsButton.Size = new System.Drawing.Size(75, 23);
-            this.step2CollectSignalsButton.TabIndex = 5;
-            this.step2CollectSignalsButton.Text = "Get Signals";
-            this.step2CollectSignalsButton.UseVisualStyleBackColor = true;
-            this.step2CollectSignalsButton.Click += new System.EventHandler(this.step2CollectSignalsButton_Click);
-            // 
-            // logBox
-            // 
-            this.logBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.logBox.FormattingEnabled = true;
-            this.logBox.Location = new System.Drawing.Point(3, 16);
-            this.logBox.Name = "logBox";
-            this.logBox.Size = new System.Drawing.Size(358, 225);
-            this.logBox.TabIndex = 0;
+            this.runningBar.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.runningBar.Location = new System.Drawing.Point(6, 214);
+            this.runningBar.Name = "runningBar";
+            this.runningBar.Size = new System.Drawing.Size(357, 23);
+            this.runningBar.Style = System.Windows.Forms.ProgressBarStyle.Marquee;
+            this.runningBar.TabIndex = 10;
             // 
             // SingleDMPSManualDeploy
             // 
@@ -558,6 +560,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.Control;
             this.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.Controls.Add(this.runningBar);
             this.Controls.Add(this.errorLabel);
             this.Controls.Add(this.tabControl1);
             this.Controls.Add(this.groupBox1);
@@ -603,8 +606,6 @@
         private System.Windows.Forms.Label currentSignalSaveLocationLabel;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.TabPage tabPage3;
-        private System.Windows.Forms.Label pushEstimatedSecondsRemainingLabel;
-        private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Label programFileToBePushedLabel;
         private System.Windows.Forms.Label label10;
         private System.Windows.Forms.TabPage tabPage4;
@@ -631,5 +632,7 @@
         private System.Windows.Forms.Button step1ConnectButton;
         private System.Windows.Forms.Button step2CollectSignalsButton;
         private System.Windows.Forms.ListBox logBox;
+        private System.Windows.Forms.ProgressBar runningBar;
+        private System.Windows.Forms.Button step3PushFile;
     }
 }

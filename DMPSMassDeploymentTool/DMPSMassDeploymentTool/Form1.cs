@@ -104,6 +104,9 @@ namespace DMPSMassDeploymentTool
                     source = "N"
                 });
             }
+
+            var stringList = innerDMPSList.Select(one => one.hostName + "," + one.ipAddress + "," + one.source);
+            System.IO.File.WriteAllLines(@"C:\temp\DMPS\DMPSList.txt", stringList);
             
             FilterDMPSList();
         }
@@ -167,8 +170,7 @@ namespace DMPSMassDeploymentTool
             dmpsList.Items.Insert(0, nDMPS);
             dmpsList.SetItemChecked(0, true);
         }
-
-        List<DMPSAddress> ToUpdateList;
+                
         int CurUpdateIndex = 0;
 
         private void deployToDMPSButton_Click(object sender, EventArgs e)
@@ -180,33 +182,48 @@ namespace DMPSMassDeploymentTool
             {
                 if (MessageBox.Show("Last Chance.....are you really, really sure???", "Really sure?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
                 {
-                    ToUpdateList = new List<DMPSAddress>();
+                    var count = dmpsList.CheckedItems.Count;
+                    var countPerRow = (int)Math.Sqrt(count);
+                    var workingArea = Screen.GetWorkingArea(this);
+                    var width = workingArea.Width / countPerRow;
+                    
+                    var countPerColumn = (double)(count / countPerRow) == ((double)count / (double)countPerRow) ? (count / countPerRow) : (count / countPerRow) + 1;
+                    var height = workingArea.Height / countPerColumn;
 
-                    //List<Thread> WorkerThreads = new List<Thread>();
+                    var CurPoint = new Point(workingArea.Left, workingArea.Top);
+                    int curRowCount = 0;
 
                     foreach (var checkedItem in dmpsList.CheckedItems)
                     {
                         var thisDMPS = checkedItem as DMPSAddress;
 
-                        SingleDMPSManualDeploy dep = new SingleDMPSManualDeploy();
-                        dep.DMPSHost = thisDMPS.hostName;
-                        dep.DMPSIPAddress = thisDMPS.ipAddress;
-                        dep.SPZFileLocation = spzFileLocation.Text;
-                        dep.VTZFileLocation = vtzFileLocation.Text;
-                        ResizeableControl rc = new ResizeableControl(dep);
-                        flowLayoutPanel1.Controls.Add(dep);
+                        //SingleDMPSManualDeploy dep = new SingleDMPSManualDeploy();
+                        //dep.DMPSHost = thisDMPS.hostName;
+                        //dep.DMPSIPAddress = thisDMPS.ipAddress;
+                        //dep.SPZFileLocation = spzFileLocation.Text;
+                        //dep.VTZFileLocation = vtzFileLocation.Text;
+                        //ResizeableControl rc = new ResizeableControl(dep);
+                        //flowLayoutPanel1.Controls.Add(dep);                        
 
-                        /*
                         DeployDMPS deploy = new DeployDMPS(thisDMPS.hostName, thisDMPS.ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
                         deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
                         deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
-                        deploy.StartDeployment(this);                        
-                        */
+                        deploy.StartDeployment(this, new Size(width, height), CurPoint);
 
-
+                        curRowCount++;
+                        if (curRowCount == countPerRow)
+                        {
+                            curRowCount = 0;
+                            CurPoint.X = workingArea.Left;
+                            CurPoint.Y = CurPoint.Y + height;
+                        }
+                        else
+                        {
+                            CurPoint.X = CurPoint.X + width;
+                        }
                     }
 
-                    tabControl1.SelectedIndex = 1;
+                    //tabControl1.SelectedIndex = 1;
                 }
             }
         }
@@ -222,8 +239,51 @@ namespace DMPSMassDeploymentTool
         private void Deploy_OnDMPSDeployedSuccessfully(string message)
         {
             //UpdateNextDMPS();
+            MessageBox.Show("Done! - " + message);
         }
-        
 
+        private void repushSignalsButton_Click(object sender, EventArgs e)
+        {
+            string confirm =
+                $"Are you sure you want to deploy?  This will premamently affect the code for {dmpsList.CheckedItems.Count} units.";
+
+            if (MessageBox.Show(confirm, "Confirm?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+            {
+                if (MessageBox.Show("Last Chance.....are you really, really sure???", "Really sure?", MessageBoxButtons.YesNoCancel) == DialogResult.Yes)
+                {
+                    var count = dmpsList.CheckedItems.Count;
+                    var countPerRow = (int)Math.Sqrt(count);
+                    var workingArea = Screen.GetWorkingArea(this);
+                    var width = workingArea.Width / countPerRow;
+                    var countPerColumn = (count / countPerRow) + 1;
+                    var height = workingArea.Height / countPerColumn;
+
+                    var CurPoint = new Point(workingArea.Left, workingArea.Top);
+                    int curRowCount = 0;
+
+                    foreach (var checkedItem in dmpsList.CheckedItems)
+                    {
+                        var thisDMPS = checkedItem as DMPSAddress;     
+
+                        DeployDMPS deploy = new DeployDMPS(thisDMPS.hostName, thisDMPS.ipAddress, spzFileLocation.Text, vtzFileLocation.Text);
+                        deploy.OnDMPSDeployedSuccessfully += Deploy_OnDMPSDeployedSuccessfully;
+                        deploy.OnDMPSDeploymentFatalError += Deploy_OnDMPSDeploymentFatalError;
+                        deploy.RepushSignals(this, new Size(width, height), CurPoint);
+
+                        curRowCount++;
+                        if (curRowCount == countPerRow)
+                        {
+                            curRowCount = 0;
+                            CurPoint.X = workingArea.Left;
+                            CurPoint.Y = CurPoint.Y + height;
+                        }
+                        else
+                        {
+                            CurPoint.X = CurPoint.X + width;
+                        }
+                    }
+                }
+            }
+        }
     }
 }

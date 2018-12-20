@@ -26,6 +26,12 @@ namespace DMPSMassDeploymentTool
         }
         public void DeployDMPS_OnStepChanged(DeployDMPS.DeploymentStep step)
         {
+            if (this.InvokeRequired)
+            {
+                this.Invoke((Action)(() => DeployDMPS_OnStepChanged(step)));
+                return;
+            }
+
             step1ButtonConnect.Font = new Font(step1ButtonConnect.Font, FontStyle.Regular);
             step2ButtonRetrieveZIG.Font = new Font(step2ButtonRetrieveZIG.Font, FontStyle.Regular);
             step3ButtonParseSIG.Font = new Font(step3ButtonParseSIG.Font, FontStyle.Regular);
@@ -41,37 +47,82 @@ namespace DMPSMassDeploymentTool
             step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Regular);
             step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Regular);
             step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Regular);
-            
+
             if (step == DeployDMPS.DeploymentStep.Connect)
+            {
                 step1ButtonConnect.Font = new Font(step1ButtonConnect.Font, FontStyle.Bold);
+                ((Panel)step1ButtonConnect.Parent).ScrollControlIntoView(step1ButtonConnect);
+            }
             else if (step == DeployDMPS.DeploymentStep.RetrieveZIG)
+            {
                 step2ButtonRetrieveZIG.Font = new Font(step2ButtonRetrieveZIG.Font, FontStyle.Bold);
+                ((Panel)step2ButtonRetrieveZIG.Parent).ScrollControlIntoView(step2ButtonRetrieveZIG);
+            }
             else if (step == DeployDMPS.DeploymentStep.UnzipAndParseSIG)
+            {
                 step3ButtonParseSIG.Font = new Font(step3ButtonParseSIG.Font, FontStyle.Bold);
+                ((Panel)step3ButtonParseSIG.Parent).ScrollControlIntoView(step3ButtonParseSIG);
+            }
             else if (step == DeployDMPS.DeploymentStep.GetCurrentSignals)
+            {
                 step4ButtonGetSignals.Font = new Font(step4ButtonGetSignals.Font, FontStyle.Bold);
+                ((Panel)step4ButtonGetSignals.Parent).ScrollControlIntoView(step4ButtonGetSignals);
+            }
             else if (step == DeployDMPS.DeploymentStep.PushNewSPZFile)
+            {
                 step5ButtonPushSPZ.Font = new Font(step5ButtonPushSPZ.Font, FontStyle.Bold);
+                ((Panel)step5ButtonPushSPZ.Parent).ScrollControlIntoView(step5ButtonPushSPZ);
+            }
             else if (step == DeployDMPS.DeploymentStep.PushNewZigFile)
+            {
                 step6ButtonPushZig.Font = new Font(step6ButtonPushZig.Font, FontStyle.Bold);
+                ((Panel)step6ButtonPushZig.Parent).ScrollControlIntoView(step6ButtonPushZig);
+            }
             else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad)
+            {
                 step65WaitForSystemToLoadButton.Font = new Font(step65WaitForSystemToLoadButton.Font, FontStyle.Bold);
+                ((Panel)step65WaitForSystemToLoadButton.Parent).ScrollControlIntoView(step65WaitForSystemToLoadButton);
+            }
             else if (step == DeployDMPS.DeploymentStep.ParseNewSigAndGetCurrentSignals2)
+            {
                 step7ButtonGetSignals.Font = new Font(step7ButtonGetSignals.Font, FontStyle.Bold);
+                ((Panel)step7ButtonGetSignals.Parent).ScrollControlIntoView(step7ButtonGetSignals);
+            }
             else if (step == DeployDMPS.DeploymentStep.SetSignals)
+            {
                 step8ButtonSetSignals.Font = new Font(step8ButtonSetSignals.Font, FontStyle.Bold);
+                ((Panel)step8ButtonSetSignals.Parent).ScrollControlIntoView(step8ButtonSetSignals);
+            }
             else if (step == DeployDMPS.DeploymentStep.SaveAndReboot)
+            {
                 step85SaveAndRebootButton.Font = new Font(step85SaveAndRebootButton.Font, FontStyle.Bold);
+                ((Panel)step85SaveAndRebootButton.Parent).ScrollControlIntoView(step85SaveAndRebootButton);
+            }
             else if (step == DeployDMPS.DeploymentStep.WaitForSystemToLoad2)
+            {
                 step86WaitForSystemToLoad.Font = new Font(step86WaitForSystemToLoad.Font, FontStyle.Bold);
+                ((Panel)step86WaitForSystemToLoad.Parent).ScrollControlIntoView(step86WaitForSystemToLoad);
+            }
             else if (step == DeployDMPS.DeploymentStep.GetSignalsAfterSet)
+            {
                 step87GetSignalsAfterSet.Font = new Font(step87GetSignalsAfterSet.Font, FontStyle.Bold);
+                ((Panel)step87GetSignalsAfterSet.Parent).ScrollControlIntoView(step87GetSignalsAfterSet);
+            }
             else if (step == DeployDMPS.DeploymentStep.GetDMPSDevices)
+            {
                 step9ButtonGetDMPSDevices.Font = new Font(step9ButtonGetDMPSDevices.Font, FontStyle.Bold);
+                ((Panel)step9ButtonGetDMPSDevices.Parent).ScrollControlIntoView(step9ButtonGetDMPSDevices);
+            }
             else if (step == DeployDMPS.DeploymentStep.GetUITouchPanelAddresses)
+            {
                 step10ButtonGetTSPAddresses.Font = new Font(step10ButtonGetTSPAddresses.Font, FontStyle.Bold);
+                ((Panel)step10ButtonGetTSPAddresses.Parent).ScrollControlIntoView(step10ButtonGetTSPAddresses);
+            }
             else if (step == DeployDMPS.DeploymentStep.PushVtzFiles)
+            {
                 step11ButtonPushVTZFiles.Font = new Font(step11ButtonPushVTZFiles.Font, FontStyle.Bold);
+                ((Panel)step11ButtonPushVTZFiles.Parent).ScrollControlIntoView(step11ButtonPushVTZFiles);
+            }
 
             Application.DoEvents();
         }

@@ -54,6 +54,7 @@
             this.spzFileLocation = new System.Windows.Forms.TextBox();
             this.tabPage2 = new System.Windows.Forms.TabPage();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
+            this.repushSignalsButton = new System.Windows.Forms.Button();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.groupBox1.SuspendLayout();
@@ -75,6 +76,7 @@
             // tabPage1
             // 
             this.tabPage1.BackColor = System.Drawing.SystemColors.Control;
+            this.tabPage1.Controls.Add(this.repushSignalsButton);
             this.tabPage1.Controls.Add(this.browseVTZFileButton);
             this.tabPage1.Controls.Add(this.label8);
             this.tabPage1.Controls.Add(this.vtzFileLocation);
@@ -350,6 +352,18 @@
             this.flowLayoutPanel1.Size = new System.Drawing.Size(707, 486);
             this.flowLayoutPanel1.TabIndex = 0;
             // 
+            // repushSignalsButton
+            // 
+            this.repushSignalsButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.repushSignalsButton.Location = new System.Drawing.Point(300, 460);
+            this.repushSignalsButton.Margin = new System.Windows.Forms.Padding(2);
+            this.repushSignalsButton.Name = "repushSignalsButton";
+            this.repushSignalsButton.Size = new System.Drawing.Size(196, 28);
+            this.repushSignalsButton.TabIndex = 21;
+            this.repushSignalsButton.Text = "Re-push signals";
+            this.repushSignalsButton.UseVisualStyleBackColor = true;
+            this.repushSignalsButton.Click += new System.EventHandler(this.repushSignalsButton_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -397,6 +411,7 @@
         private System.Windows.Forms.TextBox vtzFileLocation;
         private System.Windows.Forms.TabPage tabPage2;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel1;
+        private System.Windows.Forms.Button repushSignalsButton;
     }
 }
 

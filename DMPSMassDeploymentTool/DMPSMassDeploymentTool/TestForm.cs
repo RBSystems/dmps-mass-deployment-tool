@@ -26,7 +26,7 @@ namespace DMPSMassDeploymentTool
             sig.StartGetDMPSSignals("10.6.36.220");
         }
 
-        private void Sig_OnComplete(object sender, List<DeployDMPS.CrestronSignal> e)
+        private void Sig_OnComplete(object sender, List<CrestronSignal> e)
         {
             string s = "";
             foreach (var x in e)

@@ -15,9 +15,8 @@ namespace DMPSMassDeploymentTool
         DateTime completeTimeout = DateTime.Now.AddSeconds(10);
         public event EventHandler<string> OnLog;
 
-        public event EventHandler<List<DeployDMPS.CrestronSignal>> OnComplete;
-
-        List<DeployDMPS.CrestronSignal> list = new List<DeployDMPS.CrestronSignal>();
+        public event EventHandler<List<CrestronSignal>> OnComplete;
+        List<CrestronSignal> list = new List<CrestronSignal>();
 
         System.Timers.Timer t = new System.Timers.Timer(1000);
         
@@ -85,7 +84,7 @@ namespace DMPSMassDeploymentTool
                         signalValue += ((char)(int.Parse(x, System.Globalization.NumberStyles.HexNumber)));
                 }
 
-                list.Add(new DeployDMPS.CrestronSignal() { HasSignalValue = true, SignalIndex = signalInt, SignalValue = signalValue });
+                list.Add(new CrestronSignal() { HasSignalValue = true, SignalIndex = signalInt, SignalValue = signalValue });
             }
         }
 
