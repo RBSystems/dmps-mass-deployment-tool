@@ -132,7 +132,7 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
 
-            logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
+            logForm.targetDMPS.Text = "DMPS:" + DMPSIPAddress + " (" + DMPSHostName + ")";
 
             Connect();
         }
@@ -153,15 +153,16 @@ namespace DMPSMassDeploymentTool
 
             Log("Starting Re-push signals for " + DMPSHostName + " [" + DMPSIPAddress + "]");
 
-            if (!File.Exists(Path.Combine(TempDirectory, "UnableToSetSignals.txt")) ||
-                !File.Exists(Path.Combine(TempDirectory, "OldSignalsComplete.json")) ||
-                !File.Exists(Path.Combine(TempDirectory, "PushDMPSFilesComplete.txt"))
-                )
-            {
-                Log("Unable to re-push signals, one or more files missing");
-            }
+            //if (!File.Exists(Path.Combine(TempDirectory, "UnableToSetSignals.txt")) ||
+            //    !File.Exists(Path.Combine(TempDirectory, "OldSignalsComplete.json")) ||
+            //    !File.Exists(Path.Combine(TempDirectory, "PushDMPSFilesComplete.txt"))
+            //    )
+            //{
+            //    Log("Unable to re-push signals, one or more files missing");
+            //    return;
+            //}
 
-            string[] UnableToSetSignals = File.ReadAllLines(Path.Combine(TempDirectory, "UnableToSetSignals.txt"));
+            string[] UnableToSetSignals = File.Exists(Path.Combine(TempDirectory, "UnableToSetSignals.txt")) ?  File.ReadAllLines(Path.Combine(TempDirectory, "UnableToSetSignals.txt")) : new string[] { };
 
             if (MessageBox.Show("Last time, " + this.DMPSHostName + " was unable to push " + UnableToSetSignals.Length + " signals.  Continue with re-push?", "", MessageBoxButtons.YesNoCancel) != DialogResult.Yes)
             {
@@ -192,7 +193,7 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
 
-            logForm.targetDMPSGroupBox.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
+            logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
 
             Connect();
         }
@@ -567,7 +568,7 @@ namespace DMPSMassDeploymentTool
         }
 
         Dictionary<uint, int> retryCount = new Dictionary<uint, int>();
-        List<string> SignalsUnableToSet = new List<string>();
+        List<string> SignalsUnableToSet = new List<string>();        
 
         private void VptSessionClass_OnDebugString(int nTransactionID, int nCategory, string pszwData)
         {
@@ -1031,6 +1032,26 @@ namespace DMPSMassDeploymentTool
                     }
                 }
 
+                List<string> summary = new List<string>();
+                signalList.ForEach(one =>
+                {
+                    if (one.HasSignalValue)
+                        summary.Add(one.SignalName + "|" + one.SignalValue);
+                });
+                summary.Sort();
+                summary.Insert(0, "Name|Value");
+                System.IO.File.WriteAllLines(TempDirectory + @"OldSignalsFullSimple.txt", summary);
+
+                summary = new List<string>();
+                signalList.ForEach(one =>
+                {
+                    if (one.HasSignalValue && !IgnoreSignalName(one.SignalName))
+                        summary.Add(one.SignalName + "|" + one.SignalValue);
+                });
+                summary.Sort();
+                summary.Insert(0, "Name|Value");
+                System.IO.File.WriteAllLines(TempDirectory + @"OldSignalsSimple.txt", summary);
+
                 //move on to next step
                 int count = signalList.Count(one => one.HasSignalValue);
 
@@ -1308,6 +1329,7 @@ namespace DMPSMassDeploymentTool
         public void SetSignals()
         {
             //see which ones are different from what they used to be and set them           
+            SignalsUnableToSet.Clear();
             signalsToSet = new List<SignalToSet>();
             signalIndexToSet = -1;
             foreach (var oldSignal in signalList)
@@ -1480,9 +1502,44 @@ namespace DMPSMassDeploymentTool
                     }
                 }
             }
-
+            
             System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt",
                 signalsToSet.Select(one => one.CommandToSet + "|" + one.Signal.SignalName + " (index " + one.Signal.SignalIndex + ")"));
+
+            List<string> summary = new List<string>();
+            signalList.ForEach(one =>
+            {
+                if (one.HasSignalValue)
+                    summary.Add(one.SignalName + "|" + one.SignalValue);
+            });
+            summary.Sort();
+            summary.Insert(0, "Name|Value");
+            System.IO.File.WriteAllLines(TempDirectory + @"OldSignalsFullSimple.txt", summary);
+
+            summary.Clear();
+            signalListAfterDeployment.ForEach(one =>
+            {
+                if (one.HasSignalValue)
+                    summary.Add(one.SignalName + "|" + one.SignalValue);
+            });
+            summary.Sort();
+            summary.Insert(0, "Name|Value");
+            System.IO.File.WriteAllLines(TempDirectory + @"NewSignalsFullSimple.txt", summary);
+
+            summary.Clear();            
+            signalsToSet.ForEach(one =>
+            {
+                summary.Add(one.Signal.SignalName + "|" + one.ExpectedValue + "|" + one.Signal.SignalValue);
+            });
+            summary.Sort();
+            summary.Insert(0, "Name|Expected|Actual");
+            System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutputSimple.txt", summary);
+
+            if (isRepush)
+            {
+                if (MessageBox.Show("There are " + signalsToSet.Count + " signals that need to be set.  Continue?", "", MessageBoxButtons.YesNoCancel) != DialogResult.Yes)
+                    return;
+            }
 
             string output = "";
             Log("Entering Debug mode...");
@@ -1491,11 +1548,17 @@ namespace DMPSMassDeploymentTool
             SetNextSignal();
         }
 
-        bool CheckSetSignal = true;
+        bool CheckSetSignal = true;        
 
         public void SetNextSignal()
         {
             CurStep = DeploymentStep.SetSignals;
+
+            if (SignalsUnableToSet.Count >= 10)
+            {
+                MessageBox.Show("There have been 10 or more signals not able to set for " + this.DMPSHostName + ", " + this.DMPSIPAddress + ".  Stopping.");
+                    return;
+            }
 
             if (signalIndexToSet >= signalsToSet.Count - 1)
             {
