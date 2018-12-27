@@ -193,7 +193,7 @@ namespace DMPSMassDeploymentTool
             vptSessionClass.OnTaskProgress += VptSessionClass_OnTaskProgress;
             vptSessionClass.OnTaskComplete += VptSessionClass_OnTaskComplete;
 
-            logForm.targetDMPS.Text = "Target DMPS Unit:" + DMPSIPAddress + " (" + DMPSHostName + ")";
+            logForm.targetDMPS.Text = "DMPS:" + DMPSIPAddress + " (" + DMPSHostName + ")";
 
             Connect();
         }
@@ -297,9 +297,9 @@ namespace DMPSMassDeploymentTool
                 }
                 else if (CurStep == DeploymentStep.SetSignals)
                 {
-                    Log("No Signal set success recieved...Retrying...");
+                    Log("No Signal set success recieved...");
                     signalIndexToSet--;
-                    SetNextSignal();
+                    //SetNextSignal();
                 }
                 else if (CurStep == DeploymentStep.SaveAndReboot)
                 {
@@ -848,7 +848,7 @@ namespace DMPSMassDeploymentTool
                 //Log("\t" + x.ToString());
                 signalList.Add(x);
 
-                if (signalList.Count % 25 == 0)
+                if (signalList.Count % 1000 == 0)
                     Log("\t" + signalList.Count.ToString() + " signals parsed");
             }
 
@@ -956,7 +956,7 @@ namespace DMPSMassDeploymentTool
                 //Log("\t" + x.ToString());
                 signalListAfterDeployment.Add(x);
 
-                if (signalListAfterDeployment.Count % 25 == 0)
+                if (signalListAfterDeployment.Count % 1000 == 0)
                     Log("\t" + signalListAfterDeployment.Count.ToString() + " signals parsed");
             }
 
@@ -1350,6 +1350,9 @@ namespace DMPSMassDeploymentTool
                     {
                         //reset this one
                         if (newSignal.SignalType == 0)
+                        {
+                            if (oldSignal.SignalValue != "1") oldSignal.SignalValue = "0";
+
                             signalsToSet.Add(new SignalToSet()
                             {
                                 CommandToSet = "SignalDbgSetDigital " + newSignal.SignalIndex + ", " + oldSignal.SignalValue,
@@ -1358,6 +1361,7 @@ namespace DMPSMassDeploymentTool
                                 CommandToGet = "SignalDbgStatus " + newSignal.SignalIndex,
                                 ExpectedValue = oldSignal.SignalValue
                             });
+                        }
                         else if (newSignal.SignalType == 1)
                             signalsToSet.Add(new SignalToSet()
                             {
@@ -1502,6 +1506,8 @@ namespace DMPSMassDeploymentTool
                     }
                 }
             }
+
+            signalsToSet.Sort((a, b) => b.Signal.SignalName.CompareTo(a.Signal.SignalName));
             
             System.IO.File.WriteAllLines(TempDirectory + @"NeedToOutput.txt",
                 signalsToSet.Select(one => one.CommandToSet + "|" + one.Signal.SignalName + " (index " + one.Signal.SignalIndex + ")"));
